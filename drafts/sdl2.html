@@ -1,0 +1,155 @@
+<!DOCTYPE html> 
+<html lang="en">
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Dave Laing - First steps with SDL2</title>
+        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.2/css/bootstrap.min.css">
+        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.2/css/bootstrap-theme.min.css">
+        <link rel="stylesheet" href="../css/custom.css">
+        <link rel="stylesheet" href="../css/syntax.css">
+        <link rel="alternate" type="application/atom+xml" title="Atom - Falling Blocks" href="../atom.xml" />
+        <link rel="alternate" type="application/rss+xml" title="RSS - Falling Blocks" href="../rss.xml" />
+    </head>
+    <body>
+        <nav class="navbar navbar-default navbar-static-top">
+        <div class="container">
+        <div class="navbar-header">
+            <div class="navbar-brand">
+                <a href="../">Falling Blocks</a>
+            </div>
+            <ul class="nav navbar-nav">
+                <li role="presentation"><a href="http://dlaing.org">Back to my main site</a></li>
+            </ul>
+        </div>
+
+        </div>
+        </nav>
+
+        <div class="container">
+            <div class="panel panel-default">
+    <div class="panel-heading">
+        <h3 class="panel-title"><a href="../drafts/sdl2.html">First steps with SDL2</a></h3>
+    </div>
+    <div class="panel-body">
+        <h1 id="getting-started">Getting started</h1>
+<h2 id="the-sdl2-example">The <code>sdl2</code> example</h2>
+<p>The <code>sdl2</code> packages comes with the following example</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">{-# LANGUAGE OverloadedStrings #-}</span>
+<span class="kw">module</span> <span class="dt">Main</span> <span class="kw">where</span>
+
+<span class="kw">import </span><span class="dt">SDL</span>
+<span class="kw">import </span><span class="dt">Linear</span>
+<span class="kw">import </span><span class="dt">Control.Monad</span> (unless)
+
+<span class="ot">main ::</span> <span class="dt">IO</span> ()
+main <span class="fu">=</span> <span class="kw">do</span>
+  initialize [<span class="dt">InitEverything</span>]
+  window <span class="ot">&lt;-</span> createWindow <span class="st">&quot;My SDL Application&quot;</span> defaultWindow
+  renderer <span class="ot">&lt;-</span> createRenderer window (<span class="fu">-</span><span class="dv">1</span>) defaultRenderer
+  appLoop renderer
+
+<span class="ot">appLoop ::</span> <span class="dt">Renderer</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> ()
+appLoop renderer <span class="fu">=</span> <span class="kw">do</span>
+  events <span class="ot">&lt;-</span> pollEvents
+  <span class="kw">let</span> eventIsQPress event <span class="fu">=</span>
+        <span class="kw">case</span> eventPayload event <span class="kw">of</span>
+          <span class="dt">KeyboardEvent</span> keyboardEvent <span class="ot">-&gt;</span>
+            keyboardEventKeyMotion keyboardEvent <span class="fu">==</span> <span class="dt">Pressed</span> <span class="fu">&amp;&amp;</span>
+            keysymKeycode (keyboardEventKeysym keyboardEvent) <span class="fu">==</span> <span class="dt">KeycodeQ</span>
+          _ <span class="ot">-&gt;</span> <span class="dt">False</span>
+      qPressed <span class="fu">=</span> not (null (filter eventIsQPress events))
+  rendererDrawColor renderer <span class="fu">$=</span> <span class="dt">V4</span> <span class="dv">0</span> <span class="dv">0</span> <span class="dv">255</span> <span class="dv">255</span>
+  clear renderer
+  present renderer
+  unless qPressed (appLoop renderer)</code></pre></div>
+<h2 id="some-preparation">Some preparation</h2>
+<p>We can refactor this to prepare a little for what we’re about to do TODO we can push this a lot further TODO we can explain this in chunks</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">{-# LANGUAGE OverloadedStrings #-}</span>
+<span class="kw">module</span> <span class="dt">Main</span> <span class="kw">where</span>
+
+<span class="kw">import </span><span class="dt">SDL</span>
+<span class="kw">import </span><span class="dt">Linear</span>
+<span class="kw">import </span><span class="dt">Control.Monad</span> (unless)
+<span class="kw">import </span><span class="dt">Control.Monad.Reader</span>
+
+<span class="ot">main ::</span> <span class="dt">IO</span> ()
+main <span class="fu">=</span> <span class="kw">do</span>
+  initialize [<span class="dt">InitEverything</span>]
+  window <span class="ot">&lt;-</span> createWindow <span class="st">&quot;My SDL Application&quot;</span> defaultWindow
+  renderer <span class="ot">&lt;-</span> createRenderer window (<span class="fu">-</span><span class="dv">1</span>) defaultRenderer
+  runReaderT appLoop renderer
+
+<span class="ot">eventIsQPress ::</span> <span class="dt">Event</span> <span class="ot">-&gt;</span> <span class="dt">Bool</span>
+eventIsQPress event <span class="fu">=</span> 
+  <span class="kw">case</span> eventPayload event <span class="kw">of</span>
+    <span class="dt">KeyboardEvent</span> keyboardEvent <span class="ot">-&gt;</span>
+      keyboardEventKeyMotion keyboardEvent <span class="fu">==</span> <span class="dt">Pressed</span> <span class="fu">&amp;&amp;</span>
+      keysymKeycode (keyboardEventKeysym keyboardEvent) <span class="fu">==</span> <span class="dt">KeycodeQ</span>
+    _ <span class="ot">-&gt;</span> <span class="dt">False</span>
+
+<span class="ot">qPressed ::</span> <span class="dt">MonadIO</span> m <span class="ot">=&gt;</span> m <span class="dt">Bool</span>
+qPressed <span class="fu">=</span> <span class="kw">do</span>
+  events <span class="ot">&lt;-</span> liftIO pollEvents
+  return <span class="fu">.</span> not <span class="fu">.</span> any eventIsQPress <span class="fu">$</span> events
+
+<span class="ot">update ::</span> <span class="dt">ReaderT</span> <span class="dt">Renderer</span> <span class="dt">IO</span> ()
+update <span class="fu">=</span> <span class="kw">do</span>
+  renderer <span class="ot">&lt;-</span> ask
+  liftIO <span class="fu">$</span> <span class="kw">do</span>
+    rendererDrawColor renderer <span class="fu">$=</span> <span class="dt">V4</span> <span class="dv">0</span> <span class="dv">0</span> <span class="dv">255</span> <span class="dv">255</span>
+    clear renderer
+    present renderer
+
+<span class="ot">appLoop ::</span> <span class="dt">ReaderT</span> <span class="dt">Renderer</span> <span class="dt">IO</span> ()
+appLoop <span class="fu">=</span> <span class="kw">do</span>
+  pressed <span class="ot">&lt;-</span> qPressed
+  update
+  unless pressed appLoop</code></pre></div>
+<h1 id="the-first-steps-towards-a-game">The first steps towards a game</h1>
+<h2 id="the-basic-game-we-want">The basic game we want</h2>
+<h2 id="the-data-structures-we-need">The data structures we need</h2>
+<h2 id="a-lens-primer">A lens primer</h2>
+<h2 id="the-game-logic">The game logic</h2>
+<h2 id="event-handling">Event handling</h2>
+<h2 id="rendering">Rendering</h2>
+<h2 id="tying-it-all-together">Tying it all together</h2>
+<h1 id="timers">Timers</h1>
+<h2 id="sdl-timers">SDL timers</h2>
+<h2 id="an-stm-primer">An STM primer</h2>
+<h2 id="driving-the-game-with-a-timer">Driving the game with a timer</h2>
+<h2 id="a-ui-timer-and-a-logic-timer">A UI timer and a logic timer</h2>
+<h2 id="putting-the-logic-timer-into-play">Putting the logic timer into play</h2>
+<h1 id="conclusion">Conclusion</h1>
+    </div>
+    
+    <div class="panel-footer">
+        <h5>Posted on September 10, 2015 </h5>
+    </div>
+    
+</div>
+
+            <div class="row">
+                <div class="col-md-5"> Site proudly generated by <a href="http://jaspervdj.be/hakyll">Hakyll</a> </div>
+                <div class="col-md-7">
+                    This work is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by/4.0/">Creative Commons Attribution 4.0 International License</a>
+                    <a rel="license" href="http://creativecommons.org/licenses/by/4.0/"><img alt="Creative Commons License" style="border-width:0" src="https://i.creativecommons.org/l/by/4.0/88x31.png" /></a>
+                </div>
+            </div>
+        </div>
+
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.2/jquery.min.js"></script>
+        <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.2/js/bootstrap.min.js"></script>
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA-59162164-1', 'auto');
+  ga('send', 'pageview');
+</script>
+
+    </body>
+</html>
