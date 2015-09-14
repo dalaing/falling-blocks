@@ -15,7 +15,7 @@ main = hakyll $ do
         route   idRoute
         compile compressCssCompiler
 
-    match "posts/*" $ do
+    match "posts/**" $ do
         route $ setExtension "html"
         compile $ pandocCompiler
             >>= saveSnapshot "post-content"
@@ -23,7 +23,7 @@ main = hakyll $ do
             >>= loadAndApplyTemplate "templates/default.html" postCtx
             >>= relativizeUrls
 
-    match "drafts/*" $ do
+    match "drafts/**" $ do
         route $ setExtension "html"
         compile $ pandocCompiler
             >>= loadAndApplyTemplate "templates/post.html"    postCtx
@@ -36,7 +36,7 @@ main = hakyll $ do
               route idRoute
               compile $ do
                   let feedCtx = postCtx `mappend` bodyField "description"
-                  posts <- fmap (take 10) . recentFirst =<< loadAllSnapshots "posts/*" "post-content"
+                  posts <- fmap (take 10) . recentFirst =<< loadAllSnapshots "posts/**" "post-content"
                   render' feedConfiguration feedCtx posts
 
     rss "rss.xml" renderRss
@@ -45,7 +45,7 @@ main = hakyll $ do
     match "index.md" $ do
         route $ setExtension "html"
         compile $ do
-            posts <- chronological =<< loadAllSnapshots "posts/*" "post-content"
+            posts <- chronological =<< loadAllSnapshots "posts/**" "post-content"
             let
                 indexCtx =
                     listField "posts" postCtx (return posts) `mappend`
