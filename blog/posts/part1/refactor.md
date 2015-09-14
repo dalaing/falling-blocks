@@ -142,9 +142,9 @@ doEvents gs = do
 
 We create a main function to do our rendering, which will call all the other rendering functions and then call `present` to update the screen.
 ```haskell
-draw :: Renderer
+render :: Renderer
      -> IO ()
-draw r = do
+render r = do
   background r
   present r
 ```
@@ -166,13 +166,16 @@ Since `doEvents` ties the events to the game state and `draw` renders the game s
 ```haskell
 gameLoop :: Renderer
          -> GameState
-         -> IO GameState
+         -> IO ()
 gameLoop r s = do
+  -- update the GameState based on the events
   s' <- doEvents s
-  draw r
+  -- render the game
+  render r
+  -- check to see if the user has quit
   let q = hasQuit s'
+  -- if not, keep going
   unless q (gameLoop r s')
-  return s'
 ```
 
 The last thing to do is to modify the `main` function so that our initial state gets passed to the game loop:
@@ -192,3 +195,5 @@ And we're done.
 We've exploded the code, the event handling code and the rendering code are separated by the code that deals with the game state.
 
 We still have lots more to do, but it's a good first step.
+
+[Next](./cycle.html) we'll add a little more functionality, in order to be able to better demonstrate some of the tools and techniques we'll be using.
