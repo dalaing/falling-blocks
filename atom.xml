@@ -703,7 +703,7 @@ main <span class="fu">=</span> <span class="kw">do</span>
 <p>This is another case where we can make things easier to reason about and easier to refactor by limiting the amount of context that a function gets to the minimum that it needs.</p>
 <h1 id="conclusion">Conclusion</h1>
 <p>Now we’ve got lenses in our code. It looks like small wins so far, but they’ll add up as things get more complex.</p>
-<p><a href="./timer.html">Next</a> we’ll drive the updates using a timer, and will introduce STM along the way.</p>]]></summary>
+<!--[Next](./timer.html) we'll drive the updates using a timer, and will introduce STM along the way.-->]]></summary>
 </entry>
 <entry>
     <title>Expanding on the example</title>
