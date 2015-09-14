@@ -518,4 +518,4 @@ main = do
 
 We've mostly swapped plumbing for typeclass constraints, although we're getting into a better position to make further changes.
 
-<!--[Next](./lens.html) we'll bring `lens` into the mix, and will also look at how mixing `mtl` and `lens` can provide some additional benefits.-->
+[Next](./lens.html) we'll bring `lens` into the mix, and will also look at how mixing `mtl` and `lens` can provide some additional benefits.

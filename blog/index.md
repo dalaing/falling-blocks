@@ -10,12 +10,22 @@ It's an excuse for me to play around with the `sdl2`, `frpnow` and `gl` packages
 
 ### Posts
 
+#### Refactoring the `sdl2` example
+
+To get started, we'll take the initial example from the `sdl2` package and refactor it.
+
+The goal is to get a good separation of concerns, through which we'll also get to see a number of the packages that will be used throughout this series.
+
+- [Breaking up the initial example](./posts/part1/refactor.html)
+- [Expanding on the example](./posts/part1/cycle.html)
+- [Adding `mtl`](./posts/part1/mtl.html)
+- [Adding `lens`](./posts/part1/lens.html)
+<!--
+- [Driving the updates with a timer](./posts/part1/timer.html)
+-->
+
 #### Coming soon
 
-- First steps with SDL2
-- The game logic for "falling blocks"
-- Testing the game logic
-- FRP for "falling blocks"
 - More to follow...
 
 ### Links
