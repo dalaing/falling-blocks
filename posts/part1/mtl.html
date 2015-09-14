@@ -203,18 +203,6 @@ doEvents <span class="fu">=</span> <span class="kw">do</span>
   es <span class="ot">&lt;-</span> liftIO pollEvents
   traverse_ (handleEvent <span class="fu">.</span> toAppEvent) es</code></pre></div>
 <h2 id="updating-the-rendering">Updating the rendering</h2>
-<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">background,<span class="ot"> render ::</span> <span class="dt">Renderer</span>
-                   <span class="ot">-&gt;</span> <span class="dt">GameState</span>
-                   <span class="ot">-&gt;</span> <span class="dt">IO</span> ()</code></pre></div>
-<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">background,<span class="ot"> render ::</span> <span class="dt">MonadIO</span> m
-                   <span class="ot">=&gt;</span> <span class="dt">Renderer</span>
-                   <span class="ot">-&gt;</span> <span class="dt">GameState</span>
-                   <span class="ot">-&gt;</span> m ()</code></pre></div>
-<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">background,<span class="ot"> render ::</span> (<span class="dt">MonadState</span> <span class="dt">GameState</span> m, <span class="dt">MonadIO</span> m)
-                   <span class="ot">=&gt;</span> <span class="dt">Renderer</span>
-                   <span class="ot">-&gt;</span> m ()</code></pre></div>
-<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">background,<span class="ot"> render ::</span> (<span class="dt">MonadReader</span> <span class="dt">Renderer</span> m, <span class="dt">MonadState</span> <span class="dt">GameState</span> m, <span class="dt">MonadIO</span> m)
-                   <span class="ot">=&gt;</span> m ()</code></pre></div>
 <p>We can do the transformations much like we did with <code>handleEvent</code>.</p>
 <p>We start with what we have:</p>
 <div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">background ::</span> <span class="dt">Renderer</span>

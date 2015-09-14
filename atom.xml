@@ -8,8 +8,16 @@
         <name>Dave Laing</name>
         <email>dave.laing.80@gmail.com</email>
     </author>
-    <updated>2015-09-14T02:00:00Z</updated>
+    <updated>2015-09-15T02:00:00Z</updated>
     <entry>
+    <title>Driving the updates with a timer</title>
+    <link href="http://dlaing.org/falling-blocks/posts/part1/timer.html" />
+    <id>http://dlaing.org/falling-blocks/posts/part1/timer.html</id>
+    <published>2015-09-15T02:00:00Z</published>
+    <updated>2015-09-15T02:00:00Z</updated>
+    <summary type="html"><![CDATA[]]></summary>
+</entry>
+<entry>
     <title>Breaking up the initial example</title>
     <link href="http://dlaing.org/falling-blocks/posts/part1/refactor.html" />
     <id>http://dlaing.org/falling-blocks/posts/part1/refactor.html</id>
@@ -329,18 +337,6 @@ doEvents <span class="fu">=</span> <span class="kw">do</span>
   es <span class="ot">&lt;-</span> liftIO pollEvents
   traverse_ (handleEvent <span class="fu">.</span> toAppEvent) es</code></pre></div>
 <h2 id="updating-the-rendering">Updating the rendering</h2>
-<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">background,<span class="ot"> render ::</span> <span class="dt">Renderer</span>
-                   <span class="ot">-&gt;</span> <span class="dt">GameState</span>
-                   <span class="ot">-&gt;</span> <span class="dt">IO</span> ()</code></pre></div>
-<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">background,<span class="ot"> render ::</span> <span class="dt">MonadIO</span> m
-                   <span class="ot">=&gt;</span> <span class="dt">Renderer</span>
-                   <span class="ot">-&gt;</span> <span class="dt">GameState</span>
-                   <span class="ot">-&gt;</span> m ()</code></pre></div>
-<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">background,<span class="ot"> render ::</span> (<span class="dt">MonadState</span> <span class="dt">GameState</span> m, <span class="dt">MonadIO</span> m)
-                   <span class="ot">=&gt;</span> <span class="dt">Renderer</span>
-                   <span class="ot">-&gt;</span> m ()</code></pre></div>
-<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">background,<span class="ot"> render ::</span> (<span class="dt">MonadReader</span> <span class="dt">Renderer</span> m, <span class="dt">MonadState</span> <span class="dt">GameState</span> m, <span class="dt">MonadIO</span> m)
-                   <span class="ot">=&gt;</span> m ()</code></pre></div>
 <p>We can do the transformations much like we did with <code>handleEvent</code>.</p>
 <p>We start with what we have:</p>
 <div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">background ::</span> <span class="dt">Renderer</span>
@@ -707,7 +703,7 @@ main <span class="fu">=</span> <span class="kw">do</span>
 <p>This is another case where we can make things easier to reason about and easier to refactor by limiting the amount of context that a function gets to the minimum that it needs.</p>
 <h1 id="conclusion">Conclusion</h1>
 <p>Now we’ve got lenses in our code. It looks like small wins so far, but they’ll add up as things get more complex.</p>
-<!--[Next](./timer.html) we'll drive the updates using a timer, and will introduce STM along the way.-->]]></summary>
+<p><a href="./timer.html">Next</a> we’ll drive the updates using a timer, and will introduce STM along the way.</p>]]></summary>
 </entry>
 <entry>
     <title>Expanding on the example</title>
