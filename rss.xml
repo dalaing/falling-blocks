@@ -474,9 +474,238 @@ main <span class="fu">=</span> <span class="kw">do</span>
   startGameLoop r defaultGameState</code></pre></div>
 <h1 id="conclusion">Conclusion</h1>
 <p>We’ve mostly swapped plumbing for typeclass constraints, although we’re getting into a better position to make further changes.</p>
-<!--[Next](./lens.html) we'll bring `lens` into the mix, and will also look at how mixing `mtl` and `lens` can provide some additional benefits.-->]]></description>
+<p><a href="./lens.html">Next</a> we’ll bring <code>lens</code> into the mix, and will also look at how mixing <code>mtl</code> and <code>lens</code> can provide some additional benefits.</p>]]></description>
     <pubDate>Mon, 14 Sep 2015 02:00:00 UT</pubDate>
     <guid>http://dlaing.org/falling-blocks/posts/part1/mtl.html</guid>
+    <dc:creator>Dave Laing</dc:creator>
+</item>
+<item>
+    <title>Adding `lens`</title>
+    <link>http://dlaing.org/falling-blocks/posts/part1/lens.html</link>
+    <description><![CDATA[<h1 id="introduction">Introduction</h1>
+<p><a href="./mtl.html">Previously</a> we started using <code>mtl</code> as part of our running example.</p>
+<p>In this post we’ll start using <code>lens</code>. We’ll be making fairly basic usage of <code>lens</code> for now, although we’ll also cover a nice trick combining <code>mtl</code> and <code>lens</code> that we’ll be using later on.</p>
+<p>The code is available <a href="https://github.com/dalaing/falling-blocks/tree/master/code/part1/lens">here</a>.</p>
+<h2 id="basic-lensing">Basic lensing</h2>
+<p>Lenses are pretty handy. One of the ways we can view a lens is as a first-class combination of a getter and a setter that we can compose.</p>
+<h3 id="updating-the-game-state">Updating the game state</h3>
+<p>First we need some lenses. We’ll add them to our <code>GameState</code>, by changing from this:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">GameState</span> <span class="fu">=</span> <span class="dt">GameState</span> {
+    <span class="co">-- | The background colour</span>
+<span class="ot">    backgroundColour ::</span> <span class="dt">Colour</span>
+    <span class="co">-- | Whether or not the user has quit</span>
+  ,<span class="ot"> hasQuit          ::</span> <span class="dt">Bool</span>
+  } <span class="kw">deriving</span> (<span class="dt">Eq</span>, <span class="dt">Show</span>)</code></pre></div>
+<p>to this:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">GameState</span> <span class="fu">=</span> <span class="dt">GameState</span> {
+    <span class="co">-- | The background colour</span>
+    _<span class="ot">backgroundColour ::</span> <span class="dt">Colour</span>
+    <span class="co">-- | Whether or not the user has quit</span>
+  , _<span class="ot">hasQuit          ::</span> <span class="dt">Bool</span>
+  } <span class="kw">deriving</span> (<span class="dt">Eq</span>, <span class="dt">Show</span>)
+
+makeLenses <span class="ch">&#39;&#39;</span><span class="dt">GameState</span></code></pre></div>
+<p>We add the underscores so that the Template Haskell used inside <code>makeLenses</code> can work out which fields we want lenses for.</p>
+<p>The result in this case will be two lenses:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">backgroundColour ::</span> <span class="dt">Lens&#39;</span> <span class="dt">GameState</span> <span class="dt">Colour</span></code></pre></div>
+<p>and</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">hasQuit ::</span> <span class="dt">Lens&#39;</span> <span class="dt">GameState</span> <span class="dt">Bool</span></code></pre></div>
+<p>Lets put them to work.</p>
+<h3 id="updating-the-event-handling">Updating the event handling</h3>
+<p>The first thing we will do is update <code>handleEvent</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">handleEvent ::</span> <span class="dt">MonadState</span> <span class="dt">GameState</span> m
+            <span class="ot">=&gt;</span> <span class="dt">AppEvent</span>
+            <span class="ot">-&gt;</span> m ()
+handleEvent <span class="dt">AppCycle</span> <span class="fu">=</span> modify <span class="fu">$</span> \gs <span class="ot">-&gt;</span> gs { backgroundColour <span class="fu">=</span> nextColour <span class="fu">.</span> backgroundColour <span class="fu">$</span> gs }
+handleEvent <span class="dt">AppQuit</span>  <span class="fu">=</span> modify <span class="fu">$</span> \gs <span class="ot">-&gt;</span> gs { hasQuit <span class="fu">=</span> <span class="dt">True</span> }
+handleEvent _        <span class="fu">=</span> return ()</code></pre></div>
+<p>We can use <code>.~</code> to set a value at the target of a lens, so we can replace</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">gs { hasQuit <span class="fu">=</span> <span class="dt">True</span> }</code></pre></div>
+<p>with</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">gs <span class="fu">&amp;</span> hasQuit <span class="fu">.~</span> <span class="dt">True</span></code></pre></div>
+<p>We can also use <code>%~</code> to apply a function to the target of a lens, so we also replace</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">gs { backgroundColour <span class="fu">=</span> nextColour <span class="fu">.</span> backgroundColour <span class="fu">$</span> gs }</code></pre></div>
+<p>with</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">gs <span class="fu">&amp;</span> backgroundColour <span class="fu">%~</span> nextColour</code></pre></div>
+<p>This leaves us with:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">handleEvent ::</span> <span class="dt">MonadState</span> <span class="dt">GameState</span> m
+            <span class="ot">=&gt;</span> <span class="dt">AppEvent</span>
+            <span class="ot">-&gt;</span> m ()
+handleEvent <span class="dt">AppCycle</span> <span class="fu">=</span> modify <span class="fu">$</span> \gs <span class="ot">-&gt;</span> gs <span class="fu">&amp;</span> backgroundColour <span class="fu">%~</span> nextColour
+handleEvent <span class="dt">AppQuit</span>  <span class="fu">=</span> modify <span class="fu">$</span> \gs <span class="ot">-&gt;</span> gs <span class="fu">&amp;</span> hasQuit <span class="fu">.~</span> <span class="dt">True</span>
+handleEvent _        <span class="fu">=</span> return ()</code></pre></div>
+<p>There are also variants that work with the value carried around by the <code>MonadState</code>, which removes the need to call <code>modify</code>.</p>
+<p>The convention is to change from <code>~</code> to <code>=</code> in the operators, so we have <code>.=</code> to set the value at the target of a lens and <code>%=</code> to apply a function to the value at the target of a lens.</p>
+<p>This means we can replace</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">modify <span class="fu">$</span> \gs <span class="ot">-&gt;</span> gs <span class="fu">&amp;</span> hasQuit <span class="fu">.~</span> <span class="dt">True</span></code></pre></div>
+<p>with</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">hasQuit <span class="fu">.=</span> <span class="dt">True</span></code></pre></div>
+<p>and</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">modify <span class="fu">$</span> \gs <span class="ot">-&gt;</span> gs <span class="fu">&amp;</span> backgroundColour <span class="fu">%~</span> nextColour</code></pre></div>
+<p>with</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">backgroundColour <span class="fu">%=</span> nextColour</code></pre></div>
+<p>Our final version is:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">handleEvent ::</span> <span class="dt">MonadState</span> <span class="dt">GameState</span> m
+            <span class="ot">=&gt;</span> <span class="dt">AppEvent</span>
+            <span class="ot">-&gt;</span> m ()
+handleEvent <span class="dt">AppCycle</span> <span class="fu">=</span> backgroundColour <span class="fu">%=</span> nextColour
+handleEvent <span class="dt">AppQuit</span>  <span class="fu">=</span> hasQuit <span class="fu">.=</span> <span class="dt">True</span>
+handleEvent _        <span class="fu">=</span> return ()</code></pre></div>
+<h3 id="updating-the-rendering">Updating the rendering</h3>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">background ::</span> (<span class="dt">MonadReader</span> <span class="dt">Renderer</span> m, <span class="dt">MonadState</span> <span class="dt">GameState</span> m, <span class="dt">MonadIO</span> m)
+           <span class="ot">=&gt;</span> m ()
+background <span class="fu">=</span> <span class="kw">do</span>
+  r <span class="ot">&lt;-</span> ask
+  c <span class="ot">&lt;-</span> gets <span class="fu">$</span> toSDLColour <span class="fu">.</span> backgroundColour
+  liftIO <span class="fu">$</span> <span class="kw">do</span>
+    rendererDrawColor r <span class="fu">$=</span> c
+    clear r</code></pre></div>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">background ::</span> (<span class="dt">MonadReader</span> <span class="dt">Renderer</span> m, <span class="dt">MonadState</span> <span class="dt">GameState</span> m, <span class="dt">MonadIO</span> m)
+           <span class="ot">=&gt;</span> m ()
+background <span class="fu">=</span> <span class="kw">do</span>
+  r <span class="ot">&lt;-</span> ask
+  c <span class="ot">&lt;-</span> gets <span class="fu">$</span> toSDLColour <span class="fu">.</span> (<span class="fu">^.</span> backgroundColour)
+  liftIO <span class="fu">$</span> <span class="kw">do</span>
+    rendererDrawColor r <span class="fu">$=</span> c
+    clear r</code></pre></div>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">background ::</span> (<span class="dt">MonadReader</span> <span class="dt">Renderer</span> m, <span class="dt">MonadState</span> <span class="dt">GameState</span> m, <span class="dt">MonadIO</span> m)
+           <span class="ot">=&gt;</span> m ()
+background <span class="fu">=</span> <span class="kw">do</span>
+  r <span class="ot">&lt;-</span> ask
+  c <span class="ot">&lt;-</span> gets <span class="fu">$</span> \gs <span class="ot">-&gt;</span> gs <span class="fu">^.</span> backgroundColour <span class="fu">.</span> to toSDLColour
+  liftIO <span class="fu">$</span> <span class="kw">do</span>
+    rendererDrawColor r <span class="fu">$=</span> c
+    clear r</code></pre></div>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">sdlBackgroundColour ::</span> <span class="dt">Lens&#39;</span> <span class="dt">GameState</span> (<span class="dt">V4</span> <span class="dt">Word8</span>)
+sdlBackgroundColour <span class="fu">=</span> backgroundColour <span class="fu">.</span> to toSDLColour
+
+<span class="ot">background ::</span> (<span class="dt">MonadReader</span> <span class="dt">Renderer</span> m, <span class="dt">MonadState</span> <span class="dt">GameState</span> m, <span class="dt">MonadIO</span> m)
+           <span class="ot">=&gt;</span> m ()
+background <span class="fu">=</span> <span class="kw">do</span>
+  r <span class="ot">&lt;-</span> ask
+  c <span class="ot">&lt;-</span> gets <span class="fu">$</span> \gs <span class="ot">-&gt;</span> gs <span class="fu">^.</span> sdlBackgroundColour
+  liftIO <span class="fu">$</span> <span class="kw">do</span>
+    rendererDrawColor r <span class="fu">$=</span> c
+    clear r</code></pre></div>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">sdlBackgroundColour ::</span> <span class="dt">Lens&#39;</span> <span class="dt">GameState</span> (<span class="dt">V4</span> <span class="dt">Word8</span>)
+sdlBackgroundColour <span class="fu">=</span> backgroundColour <span class="fu">.</span> to toSDLColour
+
+<span class="ot">background ::</span> (<span class="dt">MonadReader</span> <span class="dt">Renderer</span> m, <span class="dt">MonadState</span> <span class="dt">GameState</span> m, <span class="dt">MonadIO</span> m)
+           <span class="ot">=&gt;</span> m ()
+background <span class="fu">=</span> <span class="kw">do</span>
+  r <span class="ot">&lt;-</span> ask
+  c <span class="ot">&lt;-</span> use sdlBackgroundColour
+  liftIO <span class="fu">$</span> <span class="kw">do</span>
+    rendererDrawColor r <span class="fu">$=</span> c
+    clear r</code></pre></div>
+<h3 id="updating-the-main-loop">Updating the main loop</h3>
+<p>The change to the game loop is just a matter of swapping from <code>gets hasQuit</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">gameLoop ::</span> (<span class="dt">MonadReader</span> <span class="dt">Renderer</span> m, <span class="dt">MonadState</span> <span class="dt">GameState</span> m, <span class="dt">MonadIO</span> m)
+         <span class="ot">=&gt;</span> m ()
+gameLoop <span class="fu">=</span> <span class="kw">do</span>
+  <span class="co">-- update the GameState based on the events</span>
+  doEvents
+  <span class="co">-- render the game</span>
+  render
+  <span class="co">-- check to see if the user has quit</span>
+  q <span class="ot">&lt;-</span> gets hasQuit
+  <span class="co">-- if not, keep going</span>
+  unless q gameLoop</code></pre></div>
+<p>to <code>use hasQuit</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">gameLoop ::</span> (<span class="dt">MonadReader</span> <span class="dt">Renderer</span> m, <span class="dt">MonadState</span> <span class="dt">GameState</span> m, <span class="dt">MonadIO</span> m)
+         <span class="ot">=&gt;</span> m ()
+gameLoop <span class="fu">=</span> <span class="kw">do</span>
+  <span class="co">-- update the GameState based on the events</span>
+  doEvents
+  <span class="co">-- render the game</span>
+  render
+  <span class="co">-- check to see if the user has quit</span>
+  q <span class="ot">&lt;-</span> use hasQuit
+  <span class="co">-- if not, keep going</span>
+  unless q gameLoop</code></pre></div>
+<p>and we’re done.</p>
+<h2 id="lensing-with-class">Lensing with class</h2>
+<h3 id="preparing-for-more-configuration">Preparing for more configuration</h3>
+<p>We’re about to get some more data that we’ll be passing around with our <code>MonadReader</code>, so we’re going to create a <code>Config</code> type to carry that around:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Config</span> <span class="fu">=</span> <span class="dt">Config</span> {
+    _<span class="ot">renderer ::</span> <span class="dt">Renderer</span>
+  } <span class="kw">deriving</span> (<span class="dt">Eq</span>, <span class="dt">Show</span>)
+
+makeClassy <span class="ch">&#39;&#39;</span><span class="dt">Config</span></code></pre></div>
+<p>The use of <code>makeClassy</code> is new here.</p>
+<p>It sets up:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">class</span> <span class="dt">HasConfig</span> a <span class="kw">where</span>
+<span class="ot">  config ::</span> <span class="dt">Lens&#39;</span> a <span class="dt">Config</span>
+<span class="ot">  renderer ::</span> <span class="dt">Lens&#39;</span> a <span class="dt">Renderer</span>
+
+<span class="kw">instance</span> <span class="dt">HasConfig</span> <span class="dt">Config</span> <span class="kw">where</span>
+  config <span class="fu">=</span> id</code></pre></div>
+<p>We also add a helper to create <code>Config</code> values:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">mkConfig ::</span> <span class="dt">Renderer</span> <span class="ot">-&gt;</span> <span class="dt">Config</span>
+mkConfig <span class="fu">=</span> <span class="dt">Config</span></code></pre></div>
+<h3 id="changing-the-rendering">Changing the rendering</h3>
+<p>Most of the effects of this change occur to the rendering functions.</p>
+<p>We have to change the constraint from <code>MonadReader Renderer m</code> to the pair of constraints <code>(HasConfig c, MonadReader c m)</code>. We also have to change the use of <code>ask</code> - which gets hold of the <code>Renderer</code> to <code>view renderer</code>.</p>
+<p>The <code>view</code> function allows us to read from the target of a lens, and it works with <code>MonadReader</code> out of the box.</p>
+<p>The change for the <code>background</code> function is from:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">background ::</span> (<span class="dt">MonadReader</span> <span class="dt">Renderer</span> m, <span class="dt">MonadState</span> <span class="dt">GameState</span> m, <span class="dt">MonadIO</span> m)
+           <span class="ot">=&gt;</span> m ()
+background <span class="fu">=</span> <span class="kw">do</span>
+  r <span class="ot">&lt;-</span> ask
+  c <span class="ot">&lt;-</span> use <span class="fu">$</span> backgroundColour <span class="fu">.</span> to toSDLColour
+  liftIO <span class="fu">$</span> <span class="kw">do</span>
+    rendererDrawColor r <span class="fu">$=</span> c
+    clear r</code></pre></div>
+<p>to:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">background ::</span> (<span class="dt">HasConfig</span> c, <span class="dt">MonadReader</span> c m, <span class="dt">MonadState</span> <span class="dt">GameState</span> m, <span class="dt">MonadIO</span> m)
+           <span class="ot">=&gt;</span> m ()
+background <span class="fu">=</span> <span class="kw">do</span>
+  r <span class="ot">&lt;-</span> view renderer
+  c <span class="ot">&lt;-</span> use <span class="fu">$</span> backgroundColour <span class="fu">.</span> to toSDLColour
+  liftIO <span class="fu">$</span> <span class="kw">do</span>
+    rendererDrawColor r <span class="fu">$=</span> c
+    clear r</code></pre></div>
+<p>We also make the same change to <code>render</code>.</p>
+<h3 id="changing-the-main-loop">Changing the main loop</h3>
+<p>The main loop gets a similar change to the contraint, where:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">gameLoop ::</span> (<span class="dt">MonadReader</span> <span class="dt">Renderer</span> m, <span class="dt">MonadState</span> <span class="dt">GameState</span> m, <span class="dt">MonadIO</span> m)
+         <span class="ot">=&gt;</span> m ()</code></pre></div>
+<p>becomes:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">gameLoop ::</span> (<span class="dt">HasConfig</span> c, <span class="dt">MonadReader</span> c m, <span class="dt">MonadState</span> <span class="dt">GameState</span> m, <span class="dt">MonadIO</span> m)
+         <span class="ot">=&gt;</span> m ()</code></pre></div>
+<p>We also update our helper from:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">startGameLoop ::</span> <span class="dt">Renderer</span> <span class="ot">-&gt;</span> <span class="dt">GameState</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> ()
+startGameLoop r <span class="fu">=</span> evalStateT (runReaderT gameLoop r)</code></pre></div>
+<p>to:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">startGameLoop ::</span> <span class="dt">Config</span> <span class="ot">-&gt;</span> <span class="dt">GameState</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> ()
+startGameLoop c <span class="fu">=</span> evalStateT (runReaderT gameLoop c)</code></pre></div>
+<p>This results in a flow on change to <code>main</code>, from:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">main ::</span> <span class="dt">IO</span> ()
+main <span class="fu">=</span> <span class="kw">do</span>
+  initialize [<span class="dt">InitEverything</span>]
+  window <span class="ot">&lt;-</span> createWindow <span class="st">&quot;My SDL Application&quot;</span> defaultWindow
+  r <span class="ot">&lt;-</span> createRenderer window (<span class="fu">-</span><span class="dv">1</span>) defaultRenderer
+  startGameLoop r defaultGameState</code></pre></div>
+<p>to:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">main ::</span> <span class="dt">IO</span> ()
+main <span class="fu">=</span> <span class="kw">do</span>
+  initialize [<span class="dt">InitEverything</span>]
+  window <span class="ot">&lt;-</span> createWindow <span class="st">&quot;My SDL Application&quot;</span> defaultWindow
+  r <span class="ot">&lt;-</span> createRenderer window (<span class="fu">-</span><span class="dv">1</span>) defaultRenderer
+  startGameLoop (mkConfig r) defaultGameState</code></pre></div>
+<h3 id="where-classy-wins">Where classy wins</h3>
+<p>The wins really turn up when we start nesting data more.</p>
+<p>Imagine if we expanded the rendering information in the <code>Config</code>, creating a <code>RendererConfig</code> type with classy lenses set up.</p>
+<p>We could then create:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">instance</span> <span class="dt">HasRendererConfig</span> <span class="dt">Config</span> <span class="kw">where</span>
+  rendererConfig <span class="fu">=</span> renderer</code></pre></div>
+<p>Now we can work with <code>MonadReader Config m</code>, but functions that only need access to the <code>RendererConfig</code> can use <code>(HasRendererConfig r, MonadReader r m)</code> as the context and still work with <code>MonadReader Config m</code>.</p>
+<p>This is another case where we can make things easier to reason about and easier to refactor by limiting the amount of context that a function gets to the minimum that it needs.</p>
+<h1 id="conclusion">Conclusion</h1>
+<p>Now we’ve got lenses in our code. It looks like small wins so far, but they’ll add up as things get more complex.</p>
+<!--[Next](./timer.html) we'll drive the updates using a timer, and will introduce STM along the way.-->]]></description>
+    <pubDate>Mon, 14 Sep 2015 02:00:00 UT</pubDate>
+    <guid>http://dlaing.org/falling-blocks/posts/part1/lens.html</guid>
     <dc:creator>Dave Laing</dc:creator>
 </item>
 <item>
