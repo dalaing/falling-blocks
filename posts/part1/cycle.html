@@ -1,0 +1,168 @@
+<!DOCTYPE html> 
+<html lang="en">
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Dave Laing - Expanding on the example</title>
+        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.2/css/bootstrap.min.css">
+        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.2/css/bootstrap-theme.min.css">
+        <link rel="stylesheet" href="../../css/custom.css">
+        <link rel="stylesheet" href="../../css/syntax.css">
+        <link rel="alternate" type="application/atom+xml" title="Atom - Falling Blocks" href="../../atom.xml" />
+        <link rel="alternate" type="application/rss+xml" title="RSS - Falling Blocks" href="../../rss.xml" />
+    </head>
+    <body>
+        <nav class="navbar navbar-default navbar-static-top">
+        <div class="container">
+        <div class="navbar-header">
+            <div class="navbar-brand">
+                <a href="../../">Falling Blocks</a>
+            </div>
+            <ul class="nav navbar-nav">
+                <li role="presentation"><a href="http://dlaing.org">Back to my main site</a></li>
+            </ul>
+        </div>
+
+        </div>
+        </nav>
+
+        <div class="container">
+            <div class="panel panel-default">
+    <div class="panel-heading">
+        <h3 class="panel-title"><a href="../../posts/part1/cycle.html">Expanding on the example</a></h3>
+    </div>
+    <div class="panel-body">
+        <h1 id="introduction">Introduction</h1>
+<p><a href="./refactor.html">Previously</a> we took the example from <code>sdl2</code> and refactored it somewhat.</p>
+<p>In this post we’ll add some additional functionality, in order to help motivate and explain some of the changes that will be made in the next few posts.</p>
+<p>The change is straightforward: instead of having a fixed background colour, we’ll now have a background colour that gets cycled whenever the user presses the space key.</p>
+<p>The code is available <a href="https://github.com/dalaing/falling-blocks/tree/master/code/part1/cycle">here</a>.</p>
+<h1 id="the-changes">The changes</h1>
+<h2 id="modelling-our-colours">Modelling our colours</h2>
+<p>We’re going to add our own colour type, for reasons that will become apparent later.</p>
+<p>For now, we’ll just have three colours:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Colour</span> <span class="fu">=</span>
+    <span class="dt">Red</span>
+  <span class="fu">|</span> <span class="dt">Green</span>
+  <span class="fu">|</span> <span class="dt">Blue</span>
+  <span class="kw">deriving</span> (<span class="dt">Eq</span>, <span class="dt">Show</span>)</code></pre></div>
+<p>We want to be able to cycle through them, so we define a function for that:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">nextColour ::</span> <span class="dt">Colour</span>
+           <span class="ot">-&gt;</span> <span class="dt">Colour</span>
+nextColour <span class="dt">Red</span>   <span class="fu">=</span> <span class="dt">Green</span>
+nextColour <span class="dt">Green</span> <span class="fu">=</span> <span class="dt">Blue</span>
+nextColour <span class="dt">Blue</span>  <span class="fu">=</span> <span class="dt">Red</span></code></pre></div>
+<p>Eventually we’ll need to be able to convert from our abstract representation of colour to the representation that SDL works with:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">toSDLColour ::</span> <span class="dt">Colour</span>
+            <span class="ot">-&gt;</span> <span class="dt">V4</span> <span class="dt">Word8</span>
+toSDLColour <span class="dt">Red</span>   <span class="fu">=</span> <span class="dt">V4</span> <span class="dv">255</span> <span class="dv">0</span> <span class="dv">0</span> <span class="dv">255</span>
+toSDLColour <span class="dt">Green</span> <span class="fu">=</span> <span class="dt">V4</span> <span class="dv">0</span> <span class="dv">255</span> <span class="dv">0</span> <span class="dv">255</span>
+toSDLColour <span class="dt">Blue</span>  <span class="fu">=</span> <span class="dt">V4</span> <span class="dv">0</span> <span class="dv">0</span> <span class="dv">255</span> <span class="dv">255</span></code></pre></div>
+<h2 id="updating-the-game-state">Updating the game state</h2>
+<p>We need to add the background colour to our game state:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">GameState</span> <span class="fu">=</span> <span class="dt">GameState</span> {
+    <span class="co">-- | The background colour</span>
+<span class="ot">    backgroundColour ::</span> <span class="dt">Colour</span>
+    <span class="co">-- | Whether or not the user has quit</span>
+  ,<span class="ot"> hasQuit          ::</span> <span class="dt">Bool</span>
+  } <span class="kw">deriving</span> (<span class="dt">Eq</span>, <span class="dt">Show</span>)</code></pre></div>
+<p>The default game state gets updated to reflect this:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">defaultGameState ::</span> <span class="dt">GameState</span>
+defaultGameState <span class="fu">=</span> <span class="dt">GameState</span> <span class="dt">Blue</span> <span class="dt">False</span></code></pre></div>
+<h2 id="updating-the-event-handling">Updating the event handling</h2>
+<p>We’ll add a new event that indicates that the background colour should be cycled:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">AppEvent</span> <span class="fu">=</span>
+  <span class="co">-- | Cycle event</span>
+    <span class="dt">AppCycle</span>
+  <span class="co">-- | Quit event</span>
+  <span class="fu">|</span> <span class="dt">AppQuit</span>
+  <span class="co">-- | Any SDL event we don't handle</span>
+  <span class="fu">|</span> <span class="dt">AppOther</span> <span class="dt">Event</span>
+  <span class="kw">deriving</span> (<span class="dt">Eq</span>, <span class="dt">Show</span>)</code></pre></div>
+<p>This event gets triggered when the user presses the space key:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">toAppEvent ::</span> <span class="dt">Event</span>
+           <span class="ot">-&gt;</span> <span class="dt">AppEvent</span>
+toAppEvent event <span class="fu">=</span>
+  <span class="kw">case</span> eventPayload event <span class="kw">of</span>
+    <span class="dt">KeyboardEvent</span> keyboardEvent <span class="ot">-&gt;</span>
+      <span class="kw">if</span> keyboardEventKeyMotion keyboardEvent <span class="fu">==</span> <span class="dt">Pressed</span>
+      <span class="kw">then</span>
+        <span class="kw">case</span> keysymKeycode (keyboardEventKeysym keyboardEvent) <span class="kw">of</span>
+          <span class="dt">KeycodeSpace</span> <span class="ot">-&gt;</span> <span class="dt">AppCycle</span>
+          <span class="dt">KeycodeQ</span>     <span class="ot">-&gt;</span> <span class="dt">AppQuit</span>
+          _            <span class="ot">-&gt;</span> <span class="dt">AppOther</span> event
+      <span class="kw">else</span>
+        <span class="dt">AppOther</span> event
+    _ <span class="ot">-&gt;</span> <span class="dt">AppOther</span> event</code></pre></div>
+<p>We now need to update <code>handleEvent</code> to update the game state based on this event.</p>
+<p>If we are processing the <code>AppCycle</code> event, take the old background colour, apply the <code>nextColour</code> function to it, and use the result as the new background colour:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">handleEvent ::</span> <span class="dt">AppEvent</span>
+            <span class="ot">-&gt;</span> <span class="dt">GameState</span>
+            <span class="ot">-&gt;</span> <span class="dt">GameState</span>
+handleEvent <span class="dt">AppCycle</span> gs <span class="fu">=</span> gs { backgroundColour <span class="fu">=</span> nextColour <span class="fu">.</span> backgroundColour <span class="fu">$</span> gs }
+handleEvent <span class="dt">AppQuit</span>  gs <span class="fu">=</span> gs { hasQuit <span class="fu">=</span> <span class="dt">True</span> }
+handleEvent _        gs <span class="fu">=</span> gs</code></pre></div>
+<h2 id="updating-the-rendering">Updating the rendering</h2>
+<p>Unsurprisingly, we now need to have access to the background colour while rendering the background. We also have to convert it from our abstract <code>Colour</code> type to something SDL can deal with, using <code>toSDLColour</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">background ::</span> <span class="dt">Renderer</span>
+           <span class="ot">-&gt;</span> <span class="dt">GameState</span>
+           <span class="ot">-&gt;</span> <span class="dt">IO</span> ()
+background r s <span class="fu">=</span> <span class="kw">do</span>
+  rendererDrawColor r <span class="fu">$=</span> (toSDLColour <span class="fu">.</span> backgroundColour <span class="fu">$</span> s)
+  clear r</code></pre></div>
+<p>The <code>render</code> function needs to receive the <code>GameState</code> as an argument, so that it can pass the state along to any other rendering functions which need it:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">render ::</span> <span class="dt">Renderer</span>
+       <span class="ot">-&gt;</span> <span class="dt">GameState</span>
+       <span class="ot">-&gt;</span> <span class="dt">IO</span> ()
+render r s <span class="fu">=</span> <span class="kw">do</span>
+  background r s
+  present r</code></pre></div>
+<h2 id="updating-the-main-loop">Updating the main loop</h2>
+<p>The only other change we have to make is to pass the <code>GameState</code> to the <code>render</code> function in our game loop:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">gameLoop ::</span> <span class="dt">Renderer</span>
+         <span class="ot">-&gt;</span> <span class="dt">GameState</span>
+         <span class="ot">-&gt;</span> <span class="dt">IO</span> ()
+gameLoop r s <span class="fu">=</span> <span class="kw">do</span>
+  <span class="co">-- update the GameState based on the events</span>
+  s' <span class="ot">&lt;-</span> doEvents s
+  <span class="co">-- render the game</span>
+  render r s'
+  <span class="co">-- check to see if the user has quit</span>
+  <span class="kw">let</span> q <span class="fu">=</span> hasQuit s'
+  <span class="co">-- if not, keep going</span>
+  unless q (gameLoop r s')</code></pre></div>
+<h1 id="conclusion">Conclusion</h1>
+<p>That was a fairly small change in functionality, and we’re in a much better place for motivating the changes that are coming up.</p>
+<p><a href="./mtl.html">Next</a> we’ll add monad transformers into the picture.</p>
+    </div>
+    
+    <div class="panel-footer">
+        <h5>Posted on September 14, 2015 </h5>
+    </div>
+    
+</div>
+
+            <div class="row">
+                <div class="col-md-5"> Site proudly generated by <a href="http://jaspervdj.be/hakyll">Hakyll</a> </div>
+                <div class="col-md-7">
+                    This work is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by/4.0/">Creative Commons Attribution 4.0 International License</a>
+                    <a rel="license" href="http://creativecommons.org/licenses/by/4.0/"><img alt="Creative Commons License" style="border-width:0" src="https://i.creativecommons.org/l/by/4.0/88x31.png" /></a>
+                </div>
+            </div>
+        </div>
+
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.2/jquery.min.js"></script>
+        <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.2/js/bootstrap.min.js"></script>
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA-59162164-1', 'auto');
+  ga('send', 'pageview');
+</script>
+
+    </body>
+</html>

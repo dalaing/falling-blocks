@@ -1,0 +1,263 @@
+<!DOCTYPE html> 
+<html lang="en">
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Dave Laing - First steps with SDL2</title>
+        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.2/css/bootstrap.min.css">
+        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.2/css/bootstrap-theme.min.css">
+        <link rel="stylesheet" href="../../css/custom.css">
+        <link rel="stylesheet" href="../../css/syntax.css">
+        <link rel="alternate" type="application/atom+xml" title="Atom - Falling Blocks" href="../../atom.xml" />
+        <link rel="alternate" type="application/rss+xml" title="RSS - Falling Blocks" href="../../rss.xml" />
+    </head>
+    <body>
+        <nav class="navbar navbar-default navbar-static-top">
+        <div class="container">
+        <div class="navbar-header">
+            <div class="navbar-brand">
+                <a href="../../">Falling Blocks</a>
+            </div>
+            <ul class="nav navbar-nav">
+                <li role="presentation"><a href="http://dlaing.org">Back to my main site</a></li>
+            </ul>
+        </div>
+
+        </div>
+        </nav>
+
+        <div class="container">
+            <div class="panel panel-default">
+    <div class="panel-heading">
+        <h3 class="panel-title"><a href="../../drafts/part1/sdl2.html">First steps with SDL2</a></h3>
+    </div>
+    <div class="panel-body">
+        <h1 id="getting-started">Getting started</h1>
+<h2 id="the-sdl2-example">The <code>sdl2</code> example</h2>
+<p>The <code>sdl2</code> packages comes with the following example</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">{-# LANGUAGE OverloadedStrings #-}</span>
+<span class="kw">module</span> <span class="dt">Main</span> <span class="kw">where</span>
+
+<span class="kw">import </span><span class="dt">SDL</span>
+<span class="kw">import </span><span class="dt">Linear</span>
+<span class="kw">import </span><span class="dt">Control.Monad</span> (unless)
+
+<span class="ot">main ::</span> <span class="dt">IO</span> ()
+main <span class="fu">=</span> <span class="kw">do</span>
+  initialize [<span class="dt">InitEverything</span>]
+  window <span class="ot">&lt;-</span> createWindow <span class="st">&quot;My SDL Application&quot;</span> defaultWindow
+  renderer <span class="ot">&lt;-</span> createRenderer window (<span class="fu">-</span><span class="dv">1</span>) defaultRenderer
+  appLoop renderer
+
+<span class="ot">appLoop ::</span> <span class="dt">Renderer</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> ()
+appLoop renderer <span class="fu">=</span> <span class="kw">do</span>
+  events <span class="ot">&lt;-</span> pollEvents
+  <span class="kw">let</span> eventIsQPress event <span class="fu">=</span>
+        <span class="kw">case</span> eventPayload event <span class="kw">of</span>
+          <span class="dt">KeyboardEvent</span> keyboardEvent <span class="ot">-&gt;</span>
+            keyboardEventKeyMotion keyboardEvent <span class="fu">==</span> <span class="dt">Pressed</span> <span class="fu">&amp;&amp;</span>
+            keysymKeycode (keyboardEventKeysym keyboardEvent) <span class="fu">==</span> <span class="dt">KeycodeQ</span>
+          _ <span class="ot">-&gt;</span> <span class="dt">False</span>
+      qPressed <span class="fu">=</span> not (null (filter eventIsQPress events))
+  rendererDrawColor renderer <span class="fu">$=</span> <span class="dt">V4</span> <span class="dv">0</span> <span class="dv">0</span> <span class="dv">255</span> <span class="dv">255</span>
+  clear renderer
+  present renderer
+  unless qPressed (appLoop renderer)</code></pre></div>
+<h1 id="refactoring">Refactoring</h1>
+<p>We can refactor this to prepare a little for what we’re about to do later on.</p>
+<p>This will happen in a number of stages, and will look like <em>massive</em> over-engineering.</p>
+<p>I’m heading down that path because:</p>
+<ul>
+<li>it will make future changes easier</li>
+<li>I’ve already put in the time to learn these techniques, so the cost for using these techniques is quite reasonable for me</li>
+</ul>
+<p>I’m hoping that this series helps motivate some people to dig further into learning the various initially-daunting-looking tools. Not everyone will want to spend the time or think that the value of the tools is worth the time, but that’s fine.</p>
+<p>Everyone else can strap in and come for a ride.</p>
+<h2 id="first-pass---separating-concerns">First pass - separating concerns</h2>
+<p>We’re going to separate out</p>
+<ul>
+<li>the game state</li>
+<li>the event handling</li>
+<li>the rendering</li>
+</ul>
+<p>so that we have something pretty close to a model-view-controller setup.</p>
+<h3 id="the-game-state">The game state</h3>
+<p>The game state is pretty simple at this point. We just need to track whether or not we have quit.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">GameState</span> <span class="fu">=</span> <span class="dt">GameState</span> {
+<span class="ot">  hasQuit ::</span> <span class="dt">Bool</span>
+} <span class="kw">deriving</span> (<span class="dt">Eq</span>, <span class="dt">Show</span>)</code></pre></div>
+<h3 id="our-own-event-type">Our own event type</h3>
+<p>We set up our own even type so that we can be explicit about the information that is important to us:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">AppEvent</span> <span class="fu">=</span>
+    <span class="dt">AppQuit</span>
+  <span class="fu">|</span> <span class="dt">AppOther</span> <span class="dt">Event</span>
+  <span class="kw">deriving</span> (<span class="dt">Eq</span>, <span class="dt">Show</span>)</code></pre></div>
+<p>We have <code>AppOther</code> in there as a catch-all.</p>
+<p>It’s easy to convert from SDL events to our own event:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">toAppEvent ::</span> <span class="dt">Event</span> <span class="ot">-&gt;</span> <span class="dt">AppEvent</span>
+toAppEvent event <span class="fu">=</span>
+  <span class="kw">case</span> eventPayload event <span class="kw">of</span>
+      <span class="dt">KeyboardEvent</span> keyboardEvent <span class="ot">-&gt;</span>
+        <span class="kw">if</span> keyboardEventKeyMotion keyboardEvent <span class="fu">==</span> <span class="dt">Pressed</span>
+        <span class="kw">then</span>
+          <span class="kw">case</span> keysymKeycode (keyboardEventKeysym keyboardEvent) <span class="kw">of</span>
+              <span class="dt">KeycodeQ</span> <span class="ot">-&gt;</span> <span class="dt">AppQuit</span>
+              _ <span class="ot">-&gt;</span> <span class="dt">AppOther</span> event
+        <span class="kw">else</span>
+          <span class="dt">AppOther</span> event
+      _ <span class="ot">-&gt;</span> <span class="dt">AppOther</span> event</code></pre></div>
+<p>One of the two main things we need to deal with is the connection between our application events and the game state. The other things is doing the rendering based on our game state, but we don’t have to worry about it that in this case.</p>
+<p>We connect the application events to the game state with <code>handleEvent</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">handleEvent ::</span> <span class="dt">GameState</span> <span class="ot">-&gt;</span> <span class="dt">AppEvent</span> <span class="ot">-&gt;</span> <span class="dt">GameState</span>
+handleEvent gs <span class="dt">AppQuit</span> <span class="fu">=</span> gs { hasQuit <span class="fu">=</span> true }
+handleEvent gs _ <span class="fu">=</span> gs</code></pre></div>
+<p>We have</p>
+<ul>
+<li><code>pollEvents</code> from <code>sdl2</code> to gather the pending SDL events</li>
+<li><code>toAppEvent</code> to convert SDL events to our application events</li>
+<li><code>handleEvent</code> to apply our application events to our game state</li>
+</ul>
+<p>We can tie them all together to get something that will update the <code>GameState</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">doEvents ::</span> <span class="dt">GameState</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> <span class="dt">GameState</span>
+doEvents gs <span class="fu">=</span> <span class="kw">do</span>
+  es <span class="ot">&lt;-</span> pollEvents
+  return <span class="fu">$</span> foldr (handleEvent <span class="fu">.</span> toAppEvent) gs es</code></pre></div>
+<h3 id="rendering-the-game-state">Rendering the game state</h3>
+<p>We create a main function to do our rendering, which will call all the other rendering functions and then call <code>present</code> to update the screen.</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">draw ::</span> <span class="dt">Renderer</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> ()
+draw r <span class="fu">=</span> <span class="kw">do</span>
+  background r
+  present r</code></pre></div>
+<p>For now all we have to display is the background:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">background ::</span> <span class="dt">Renderer</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> ()
+background r <span class="fu">=</span> <span class="kw">do</span>
+  rendererDrawColor r <span class="fu">$=</span> <span class="dt">V4</span> <span class="dv">0</span> <span class="dv">0</span> <span class="dv">255</span> <span class="dv">255</span>
+  clear r</code></pre></div>
+<p>but later on we’ll have drawing functions to render the relevant information from our game state.</p>
+<h3 id="tying-it-all-together">Tying it all together</h3>
+<p>Since <code>doEvents</code> ties the events to the game state and <code>draw</code> renders the game state, we need to call both of these in our main loop, and continue until the user quits:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">appLoop ::</span> <span class="dt">Renderer</span> <span class="ot">-&gt;</span> <span class="dt">GameState</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> <span class="dt">GameState</span>
+appLoop r s <span class="fu">=</span> <span class="kw">do</span>
+  s' <span class="ot">&lt;-</span> doEvents s
+  draw r
+  <span class="kw">let</span> q <span class="fu">=</span> hasQuit s'
+  unless q (appLoop r s')
+  return s'</code></pre></div>
+<p>The last thing to do is to modify the <code>main</code> function so that our initial state gets passed to the game loop:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">main ::</span> <span class="dt">IO</span> ()
+main <span class="fu">=</span> <span class="kw">do</span>
+  initialize [<span class="dt">InitEverything</span>]
+  window <span class="ot">&lt;-</span> createWindow <span class="st">&quot;My SDL Application&quot;</span> defaultWindow
+  r <span class="ot">&lt;-</span> createRenderer window (<span class="fu">-</span><span class="dv">1</span>) defaultRenderer
+  appLoop r (<span class="dt">GameState</span> <span class="dt">False</span>)</code></pre></div>
+<p>And we’re done.</p>
+<h2 id="second-pass---adding-monad-transformers-with-mtl">Second pass - adding monad transformers with <code>mtl</code></h2>
+<p>We do not need monad transformers for such a simple example.</p>
+<p>We’re going to end up with something that is less simple, so I’m going to add them here to get it out of the way.</p>
+<h3 id="changes-to-the-event-handling">Changes to the event handling</h3>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">handleEvent ::</span> <span class="dt">GameState</span> <span class="ot">-&gt;</span> <span class="dt">AppEvent</span> <span class="ot">-&gt;</span> <span class="dt">GameState</span>
+handleEvent gs <span class="dt">AppQuit</span> <span class="fu">=</span> gs { hasQuit <span class="fu">=</span> true }
+handleEvent gs _ <span class="fu">=</span> gs</code></pre></div>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">handleEvent ::</span> (<span class="dt">MonadState</span> <span class="dt">GameState</span> m)
+            <span class="ot">=&gt;</span> <span class="dt">AppEvent</span> <span class="ot">-&gt;</span> m ()
+handleEvent <span class="dt">AppQuit</span> <span class="fu">=</span>
+  modify <span class="fu">$</span> \gs <span class="ot">-&gt;</span> gs { hasQuit <span class="fu">=</span> <span class="dt">True</span> }
+handleEvent _ <span class="fu">=</span> return ()</code></pre></div>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">doEvents ::</span> <span class="dt">GameState</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> <span class="dt">GameState</span>
+doEvents gs <span class="fu">=</span> <span class="kw">do</span>
+  es <span class="ot">&lt;-</span> pollEvents
+  return <span class="fu">$</span> foldr (handleEvent <span class="fu">.</span> toAppEvent) gs es</code></pre></div>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">doEvents ::</span> (<span class="dt">MonadState</span> <span class="dt">GameState</span> m, <span class="dt">MonadIO</span> m)
+         <span class="ot">=&gt;</span> m ()
+doEvents <span class="fu">=</span> <span class="kw">do</span>
+  es <span class="ot">&lt;-</span> liftIO pollEvents
+  traverse_ (handleEvent <span class="fu">.</span> toAppEvent) <span class="fu">$</span> es</code></pre></div>
+<h3 id="changes-to-the-rendering">Changes to the rendering</h3>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">draw ::</span> <span class="dt">Renderer</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> ()
+draw r <span class="fu">=</span> <span class="kw">do</span>
+  background r
+  present r</code></pre></div>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">draw ::</span> (<span class="dt">MonadReader</span> <span class="dt">Renderer</span> m, <span class="dt">MonadIO</span> m)
+     <span class="ot">=&gt;</span> m ()
+draw <span class="fu">=</span> <span class="kw">do</span>
+  background
+  r <span class="ot">&lt;-</span> ask
+  liftIO <span class="fu">$</span> present r</code></pre></div>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">background ::</span> <span class="dt">Renderer</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> ()
+background r <span class="fu">=</span> <span class="kw">do</span>
+  rendererDrawColor r <span class="fu">$=</span> <span class="dt">V4</span> <span class="dv">0</span> <span class="dv">0</span> <span class="dv">255</span> <span class="dv">255</span>
+  clear r</code></pre></div>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">background ::</span> (<span class="dt">MonadReader</span> <span class="dt">Renderer</span> m, <span class="dt">MonadIO</span> m)
+           <span class="ot">=&gt;</span> m ()
+background <span class="fu">=</span> <span class="kw">do</span>
+  r <span class="ot">&lt;-</span> ask
+  liftIO <span class="fu">$</span> <span class="kw">do</span>
+    rendererDrawColor r <span class="fu">$=</span> <span class="dt">V4</span> <span class="dv">0</span> <span class="dv">0</span> <span class="dv">255</span> <span class="dv">255</span>
+    clear r</code></pre></div>
+<h3 id="changes-to-the-main-loop">Changes to the main loop</h3>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">appLoop ::</span> (<span class="dt">MonadReader</span> <span class="dt">Renderer</span> m, <span class="dt">MonadState</span> <span class="dt">GameState</span> m, <span class="dt">MonadIO</span> m)
+        <span class="ot">=&gt;</span> m ()
+appLoop <span class="fu">=</span> <span class="kw">do</span>
+  doEvents
+  draw
+  q <span class="ot">&lt;-</span> gets hasQuit
+  unless q appLoop</code></pre></div>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">main ::</span> <span class="dt">IO</span> ()
+main <span class="fu">=</span> <span class="kw">do</span>
+  initialize [<span class="dt">InitEverything</span>]
+  window <span class="ot">&lt;-</span> createWindow <span class="st">&quot;My SDL Application&quot;</span> defaultWindow
+  r <span class="ot">&lt;-</span> createRenderer window (<span class="fu">-</span><span class="dv">1</span>) defaultRenderer
+  evalStateT (runReaderT appLoop r) (<span class="dt">GameState</span> <span class="dt">False</span>)</code></pre></div>
+<h2 id="third-pass---adding-lens">Third pass - adding <code>lens</code></h2>
+<p>This is going to be relative minor, but it will pay off in the future posts.</p>
+<h3 id="the-game-state-1">The game state</h3>
+<p>We do the usual dance to set up lenses for <code>GameState</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">{-# LANGUAGE TemplateHaskell #-}</span>
+
+<span class="kw">import </span><span class="dt">Contorl.Lens</span>
+
+<span class="kw">data</span> <span class="dt">GameState</span> <span class="fu">=</span> <span class="dt">GameState</span> {
+  _<span class="ot">hasQuit ::</span> <span class="dt">Bool</span>
+} <span class="kw">deriving</span> (<span class="dt">Eq</span>, <span class="dt">Show</span>)
+
+makeLenses <span class="ch">''</span><span class="dt">GameState</span></code></pre></div>
+<h3 id="updating-the-game-state">Updating the game state</h3>
+<h3 id="accessing-the-game-state">Accessing the game state</h3>
+<h2 id="fourth-pass---adding-free">Fourth pass - adding <code>free</code></h2>
+<p>This will look like even more overkill than bringing <code>lens</code> into play, but at least you’ll get to see some of the payoff in this post.</p>
+<h2 id="fifth-pass---adding-quickcheck">Fifth pass - adding <code>QuickCheck</code></h2>
+<p>This is where we get to see <code>free</code> in use.</p>
+<h1 id="conclusion">Conclusion</h1>
+<p>TODO</p>
+    </div>
+    
+    <div class="panel-footer">
+        <h5>Posted on September 10, 2015 </h5>
+    </div>
+    
+</div>
+
+            <div class="row">
+                <div class="col-md-5"> Site proudly generated by <a href="http://jaspervdj.be/hakyll">Hakyll</a> </div>
+                <div class="col-md-7">
+                    This work is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by/4.0/">Creative Commons Attribution 4.0 International License</a>
+                    <a rel="license" href="http://creativecommons.org/licenses/by/4.0/"><img alt="Creative Commons License" style="border-width:0" src="https://i.creativecommons.org/l/by/4.0/88x31.png" /></a>
+                </div>
+            </div>
+        </div>
+
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.2/jquery.min.js"></script>
+        <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.2/js/bootstrap.min.js"></script>
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA-59162164-1', 'auto');
+  ga('send', 'pageview');
+</script>
+
+    </body>
+</html>

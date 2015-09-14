@@ -1,0 +1,239 @@
+<!DOCTYPE html> 
+<html lang="en">
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Dave Laing - A basic game</title>
+        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.2/css/bootstrap.min.css">
+        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.2/css/bootstrap-theme.min.css">
+        <link rel="stylesheet" href="../css/custom.css">
+        <link rel="stylesheet" href="../css/syntax.css">
+        <link rel="alternate" type="application/atom+xml" title="Atom - Falling Blocks" href="../atom.xml" />
+        <link rel="alternate" type="application/rss+xml" title="RSS - Falling Blocks" href="../rss.xml" />
+    </head>
+    <body>
+        <nav class="navbar navbar-default navbar-static-top">
+        <div class="container">
+        <div class="navbar-header">
+            <div class="navbar-brand">
+                <a href="../">Falling Blocks</a>
+            </div>
+            <ul class="nav navbar-nav">
+                <li role="presentation"><a href="http://dlaing.org">Back to my main site</a></li>
+            </ul>
+        </div>
+
+        </div>
+        </nav>
+
+        <div class="container">
+            <div class="panel panel-default">
+    <div class="panel-heading">
+        <h3 class="panel-title"><a href="../drafts/basic.html">A basic game</a></h3>
+    </div>
+    <div class="panel-body">
+        <h1 id="the-first-steps-towards-a-game">The first steps towards a game</h1>
+<h2 id="the-basic-game-we-want">The basic game we want</h2>
+<p>As a first pass, we just want</p>
+<ul>
+<li>to render a block on the screen</li>
+<li>to be able to move the block around the screen using the arrow keys</li>
+</ul>
+<h2 id="the-game-state">The game state</h2>
+<p>We have a <code>GameConfig</code> type, which stores the size of the block in pixels, and the width and height of the game screen in terms of blocks:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">GameConfig</span> <span class="fu">=</span> <span class="dt">GameConfig</span> {
+    _<span class="ot">blockSize ::</span> <span class="dt">Int</span>
+  , _<span class="ot">levelBlockWidth ::</span> <span class="dt">Int</span>
+  , _<span class="ot">levelBlockHeight ::</span> <span class="dt">Int</span>
+  }
+
+makeClassy <span class="ch">''</span><span class="dt">GameConfig</span></code></pre></div>
+<p>We also define a default value for the <code>GameConfig</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">defaultGameConfig ::</span> <span class="dt">GameConfig</span>
+defaultGameConfig <span class="fu">=</span> <span class="dt">GameConfig</span> <span class="dv">16</span> <span class="dv">16</span> <span class="dv">24</span></code></pre></div>
+<p>We add some extra state for the position of the block in <code>GameState</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">GameState</span> <span class="fu">=</span> <span class="dt">GameState</span> {
+    _<span class="ot">blockX ::</span> <span class="dt">Int</span>
+  , _<span class="ot">blockY ::</span> <span class="dt">Int</span>
+  , _<span class="ot">hasQuit ::</span> <span class="dt">Bool</span>
+  } <span class="kw">deriving</span> (<span class="dt">Eq</span>, <span class="dt">Show</span>)
+
+makeLenses <span class="ch">''</span><span class="dt">GameState</span></code></pre></div>
+<p>TODO mention how classy lenses work with STL</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">getRect ::</span> (<span class="dt">HasGameConfig</span> r,<span class="dt">MonadReader</span> r m,<span class="dt">MonadState</span> <span class="dt">GameState</span> m,<span class="dt">Integral</span> a)
+        <span class="ot">=&gt;</span> m (<span class="dt">Rectangle</span> a)
+getRect <span class="fu">=</span> <span class="kw">do</span>
+  x <span class="ot">&lt;-</span> use blockX
+  y <span class="ot">&lt;-</span> use blockY
+  w <span class="ot">&lt;-</span> view <span class="fu">$</span> gameConfig <span class="fu">.</span> blockSize
+  return <span class="fu">$</span> <span class="dt">Rectangle</span> (<span class="dt">P</span> (<span class="dt">V2</span> (fromIntegral <span class="fu">$</span> x <span class="fu">*</span> w) (fromIntegral <span class="fu">$</span> y <span class="fu">*</span> w))) (<span class="dt">V2</span> (fromIntegral w) (fromIntegral w))</code></pre></div>
+<p>TODO explain use and the various state update functions</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">moveLeft ::</span> (<span class="dt">MonadState</span> <span class="dt">GameState</span> m)
+         <span class="ot">=&gt;</span> m ()
+moveLeft <span class="fu">=</span> <span class="kw">do</span>
+  x <span class="ot">&lt;-</span> use blockX
+  when (<span class="dv">0</span> <span class="fu">&lt;</span> x) <span class="fu">$</span>
+    blockX <span class="fu">-=</span> <span class="dv">1</span>
+
+<span class="ot">moveRight ::</span> (<span class="dt">HasGameConfig</span> r,<span class="dt">MonadReader</span> r m,<span class="dt">MonadState</span> <span class="dt">GameState</span> m)
+          <span class="ot">=&gt;</span> m ()
+moveRight <span class="fu">=</span> <span class="kw">do</span>
+  x <span class="ot">&lt;-</span> use blockX
+  w <span class="ot">&lt;-</span> view <span class="fu">$</span> gameConfig <span class="fu">.</span> levelBlockWidth
+  when (x <span class="fu">&lt;</span> w <span class="fu">-</span> <span class="dv">1</span>) <span class="fu">$</span>
+   blockX <span class="fu">+=</span> <span class="dv">1</span>
+
+<span class="ot">moveUp ::</span> (<span class="dt">MonadState</span> <span class="dt">GameState</span> m)
+       <span class="ot">=&gt;</span> m ()
+moveUp <span class="fu">=</span> <span class="kw">do</span>
+  y <span class="ot">&lt;-</span> use blockY
+  when (<span class="dv">0</span> <span class="fu">&lt;</span> y) <span class="fu">$</span>
+    blockY <span class="fu">-=</span> <span class="dv">1</span>
+
+<span class="ot">moveDown ::</span> (<span class="dt">HasGameConfig</span> r,<span class="dt">MonadReader</span> r m,<span class="dt">MonadState</span> <span class="dt">GameState</span> m)
+         <span class="ot">=&gt;</span> m ()
+moveDown <span class="fu">=</span> <span class="kw">do</span>
+  y <span class="ot">&lt;-</span> use blockY
+  h <span class="ot">&lt;-</span> view <span class="fu">$</span> gameConfig <span class="fu">.</span> levelBlockHeight
+  when (y <span class="fu">&lt;</span> h <span class="fu">-</span> <span class="dv">1</span>) <span class="fu">$</span>
+    blockY <span class="fu">+=</span> <span class="dv">1</span></code></pre></div>
+<h2 id="event-handling">Event handling</h2>
+<p>We now have a few more events we want to capture:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">AppEvent</span> <span class="fu">=</span>
+    <span class="dt">AppQuit</span>
+  <span class="fu">|</span> <span class="dt">AppLeft</span>
+  <span class="fu">|</span> <span class="dt">AppRight</span>
+  <span class="fu">|</span> <span class="dt">AppUp</span>
+  <span class="fu">|</span> <span class="dt">AppDown</span>
+  <span class="fu">|</span> <span class="dt">AppOther</span> <span class="dt">Event</span>
+  <span class="kw">deriving</span> (<span class="dt">Eq</span>, <span class="dt">Show</span>)</code></pre></div>
+<p>Capturing them is pretty straightforward:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">toAppEvent ::</span> <span class="dt">Event</span> <span class="ot">-&gt;</span> <span class="dt">AppEvent</span>
+toAppEvent event <span class="fu">=</span>
+  <span class="kw">case</span> eventPayload event <span class="kw">of</span>
+      <span class="dt">KeyboardEvent</span> keyboardEvent <span class="ot">-&gt;</span>
+        <span class="kw">if</span> keyboardEventKeyMotion keyboardEvent <span class="fu">==</span> <span class="dt">Pressed</span>
+        <span class="kw">then</span>
+          <span class="kw">case</span> keysymKeycode (keyboardEventKeysym keyboardEvent) <span class="kw">of</span>
+              <span class="dt">KeycodeQ</span> <span class="ot">-&gt;</span> <span class="dt">AppQuit</span>
+              <span class="dt">KeycodeLeft</span> <span class="ot">-&gt;</span> <span class="dt">AppLeft</span>
+              <span class="dt">KeycodeRight</span> <span class="ot">-&gt;</span> <span class="dt">AppRight</span>
+              <span class="dt">KeycodeUp</span> <span class="ot">-&gt;</span> <span class="dt">AppUp</span>
+              <span class="dt">KeycodeDown</span> <span class="ot">-&gt;</span> <span class="dt">AppDown</span>
+              _ <span class="ot">-&gt;</span> <span class="dt">AppOther</span> event
+        <span class="kw">else</span>
+          <span class="dt">AppOther</span> event
+      _ <span class="ot">-&gt;</span> <span class="dt">AppOther</span> event</code></pre></div>
+<p>The bridge between these events and the game state is also easy to take care of, since we’ve already written the various functions we need to manipulate the game state:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">handleEvent ::</span> (<span class="dt">HasGameConfig</span> r,<span class="dt">MonadReader</span> r m,<span class="dt">MonadState</span> <span class="dt">GameState</span> m)
+            <span class="ot">=&gt;</span> <span class="dt">AppEvent</span> <span class="ot">-&gt;</span> m ()
+handleEvent <span class="dt">AppQuit</span> <span class="fu">=</span>
+  hasQuit <span class="fu">.=</span> <span class="dt">True</span>
+handleEvent <span class="dt">AppLeft</span> <span class="fu">=</span> moveLeft
+handleEvent <span class="dt">AppRight</span> <span class="fu">=</span> moveRight
+handleEvent <span class="dt">AppUp</span> <span class="fu">=</span> moveUp
+handleEvent <span class="dt">AppDown</span> <span class="fu">=</span> moveDown
+handleEvent _ <span class="fu">=</span> return ()</code></pre></div>
+<p>With these changes in hand, <code>doEvents</code> doesn’t need to change aside from the constraints:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">doEvents ::</span> (<span class="dt">HasGameConfig</span> r,<span class="dt">MonadReader</span> r m,<span class="dt">MonadState</span> <span class="dt">GameState</span> m,<span class="dt">MonadIO</span> m)
+         <span class="ot">=&gt;</span> m ()
+doEvents <span class="fu">=</span> <span class="kw">do</span>
+  es <span class="ot">&lt;-</span> liftIO pollEvents
+  void <span class="fu">$</span> traverse (handleEvent <span class="fu">.</span> toAppEvent) es</code></pre></div>
+<h2 id="the-top-level-configuration-type">The top level configuration type</h2>
+<p>TODO explain how these two things interact</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">Config</span> <span class="fu">=</span> <span class="dt">Config</span> {
+    _<span class="ot">cRenderer ::</span> <span class="dt">Renderer</span>
+  , _<span class="ot">cGameConfig ::</span> <span class="dt">GameConfig</span>
+  } <span class="kw">deriving</span> (<span class="dt">Eq</span>, <span class="dt">Show</span>)
+
+makeClassy <span class="ch">''</span><span class="dt">Config</span>
+
+<span class="kw">class</span> <span class="dt">HasRenderer</span> a <span class="kw">where</span>
+<span class="ot">  renderer ::</span> <span class="dt">Lens'</span> a <span class="dt">Renderer</span>
+
+<span class="kw">instance</span> <span class="dt">HasRenderer</span> <span class="dt">Config</span> <span class="kw">where</span>
+  renderer <span class="fu">=</span> cRenderer
+
+<span class="kw">instance</span> <span class="dt">HasGameConfig</span> <span class="dt">Config</span> <span class="kw">where</span>
+  gameConfig <span class="fu">=</span> cGameConfig</code></pre></div>
+<h2 id="rendering">Rendering</h2>
+<p>The <code>background</code> function hasn’t changed except for the colour:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">background ::</span> (<span class="dt">HasRenderer</span> r,<span class="dt">MonadReader</span> r m,<span class="dt">MonadIO</span> m)
+           <span class="ot">=&gt;</span> m ()
+background <span class="fu">=</span> <span class="kw">do</span>
+  r <span class="ot">&lt;-</span> view renderer
+  liftIO <span class="fu">$</span> <span class="kw">do</span>
+    rendererDrawColor r <span class="fu">$=</span> <span class="dt">V4</span> <span class="dv">0</span> <span class="dv">0</span> <span class="dv">0</span> <span class="dv">0</span>
+    clear r</code></pre></div>
+<p>We add a function in to draw the block:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">block ::</span> (<span class="dt">HasRenderer</span> r,<span class="dt">HasGameConfig</span> r,<span class="dt">MonadReader</span> r m,<span class="dt">MonadState</span> <span class="dt">GameState</span> m,<span class="dt">MonadIO</span> m)
+      <span class="ot">=&gt;</span> m ()
+block <span class="fu">=</span> <span class="kw">do</span>
+  r <span class="ot">&lt;-</span> view renderer
+  rect <span class="ot">&lt;-</span> getRect
+  liftIO <span class="fu">$</span> <span class="kw">do</span>
+    rendererDrawColor r <span class="fu">$=</span> <span class="dt">V4</span> <span class="dv">0</span> <span class="dv">0</span> <span class="dv">255</span> <span class="dv">255</span>
+    fillRect r (<span class="dt">Just</span> rect)</code></pre></div>
+<p>Our <code>draw</code> function gets updated to draw the <code>background</code> and then the <code>block</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">draw ::</span> (<span class="dt">HasRenderer</span> r,<span class="dt">HasGameConfig</span> r,<span class="dt">MonadReader</span> r m,<span class="dt">MonadState</span> <span class="dt">GameState</span> m,<span class="dt">MonadIO</span> m)
+     <span class="ot">=&gt;</span> m ()
+draw <span class="fu">=</span> <span class="kw">do</span>
+  background
+  block
+  r <span class="ot">&lt;-</span> view renderer
+  liftIO <span class="fu">$</span> present r</code></pre></div>
+<h2 id="tying-it-all-together">Tying it all together</h2>
+<p>The main loop hasn’t changed much, although the constraints around the <code>Reader</code> part of the monad stack have become more involved:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">appLoop ::</span> (<span class="dt">HasRenderer</span> r,<span class="dt">HasGameConfig</span> r,<span class="dt">MonadReader</span> r m,<span class="dt">MonadState</span> <span class="dt">GameState</span> m,<span class="dt">MonadIO</span> m)
+        <span class="ot">=&gt;</span> m ()
+appLoop <span class="fu">=</span> <span class="kw">do</span>
+  doEvents
+  draw
+  q <span class="ot">&lt;-</span> use hasQuit
+  unless q appLoop</code></pre></div>
+<p>We introduce a helper function to convert from our <code>GameConfig</code> type to and SDL <code>WindowConfg</code> type</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">windowConfig ::</span> <span class="dt">GameConfig</span> <span class="ot">-&gt;</span> <span class="dt">WindowConfig</span>
+windowConfig (<span class="dt">GameConfig</span> b w h) <span class="fu">=</span> defaultWindow { windowInitialSize <span class="fu">=</span> <span class="dt">V2</span> (fromIntegral <span class="fu">$</span> b <span class="fu">*</span> w) (fromIntegral <span class="fu">$</span> b <span class="fu">*</span> h) }</code></pre></div>
+<p>With that in hand, our <code>main</code> function is similar to what we had before, but we use a different <code>WindowConfig</code> and a slightly more involved initial <code>GameState</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">main ::</span> <span class="dt">IO</span> ()
+main <span class="fu">=</span> <span class="kw">do</span>
+  initialize [<span class="dt">InitEverything</span>]
+  <span class="kw">let</span> config <span class="fu">=</span> defaultGameConfig
+  window <span class="ot">&lt;-</span> createWindow <span class="st">&quot;My SDL Application&quot;</span> <span class="fu">.</span> windowConfig <span class="fu">$</span> config
+  r <span class="ot">&lt;-</span> createRenderer window (<span class="fu">-</span><span class="dv">1</span>) defaultRenderer
+  evalStateT (runReaderT appLoop (<span class="dt">Config</span> r config)) (<span class="dt">GameState</span> <span class="dv">0</span> <span class="dv">0</span> <span class="dt">False</span>)</code></pre></div>
+<h1 id="conclusion">Conclusion</h1>
+<p>TODO</p>
+    </div>
+    
+    <div class="panel-footer">
+        <h5>Posted on September 10, 2015 </h5>
+    </div>
+    
+</div>
+
+            <div class="row">
+                <div class="col-md-5"> Site proudly generated by <a href="http://jaspervdj.be/hakyll">Hakyll</a> </div>
+                <div class="col-md-7">
+                    This work is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by/4.0/">Creative Commons Attribution 4.0 International License</a>
+                    <a rel="license" href="http://creativecommons.org/licenses/by/4.0/"><img alt="Creative Commons License" style="border-width:0" src="https://i.creativecommons.org/l/by/4.0/88x31.png" /></a>
+                </div>
+            </div>
+        </div>
+
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.2/jquery.min.js"></script>
+        <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.2/js/bootstrap.min.js"></script>
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA-59162164-1', 'auto');
+  ga('send', 'pageview');
+</script>
+
+    </body>
+</html>
