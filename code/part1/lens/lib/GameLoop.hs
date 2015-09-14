@@ -16,16 +16,14 @@ import           Control.Monad.Trans  (MonadIO)
 -- from 'lens'
 import           Control.Lens.Getter  (use)
 
--- from 'sdl2'
-import           SDL.Video.Renderer   (Renderer)
-
 -- internal
+import           Config               (Config, HasConfig)
 import           Event                (doEvents)
 import           GameState            (GameState (..), hasQuit)
 import           Render               (render)
 
 -- | Runs the game loop.
-gameLoop :: (MonadReader Renderer m, MonadState GameState m, MonadIO m)
+gameLoop :: (HasConfig c, MonadReader c m, MonadState GameState m, MonadIO m)
          => m ()
 gameLoop = do
   -- update the GameState based on the events
@@ -38,5 +36,5 @@ gameLoop = do
   unless q gameLoop
 
 -- | Starts the game loop.
-startGameLoop :: Renderer -> GameState -> IO ()
-startGameLoop r = evalStateT (runReaderT gameLoop r)
+startGameLoop :: Config -> GameState -> IO ()
+startGameLoop c = evalStateT (runReaderT gameLoop c)

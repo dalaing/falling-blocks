@@ -1,14 +1,10 @@
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE PatternSynonyms       #-}
-{-# LANGUAGE TemplateHaskell       #-}
 {- |
 The 'Event' module provides events specific to our application.
 -}
 module Event (
     AppEvent(..)
-  , _AppCycle
-  , _AppQuit
-  , _AppOther
   , toAppEvent
   , handleEvent
   -- * Interface to SDL
@@ -24,7 +20,6 @@ import           Control.Monad.Trans      (MonadIO, liftIO)
 
 -- from 'lens'
 import           Control.Lens.Setter      ((%=), (.=))
-import           Control.Lens.TH          (makePrisms)
 
 -- from 'sdl2'
 import           SDL.Event                (Event (..), EventPayload (..),
@@ -47,8 +42,6 @@ data AppEvent =
   -- | Any SDL event we don't handle
   | AppOther Event
   deriving (Eq, Show)
-
-makePrisms ''AppEvent
 
 -- | Converts an SDL event to an 'AppEvent'.
 toAppEvent :: Event

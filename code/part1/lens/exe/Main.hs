@@ -10,6 +10,7 @@ import           SDL.Video          (createRenderer, createWindow,
 import           SDL.Video.Renderer (defaultRenderer)
 
 -- internal
+import           Config             (mkConfig)
 import           GameLoop           (startGameLoop)
 import           GameState          (defaultGameState)
 
@@ -18,4 +19,4 @@ main = do
   initialize [InitEverything]
   window <- createWindow "My SDL Application" defaultWindow
   r <- createRenderer window (-1) defaultRenderer
-  startGameLoop r defaultGameState
+  startGameLoop (mkConfig r) defaultGameState
