@@ -27,4 +27,3 @@ gameLoop r s = do
   let q = hasQuit s'
   -- if not, keep going
   unless q (gameLoop r s')
-

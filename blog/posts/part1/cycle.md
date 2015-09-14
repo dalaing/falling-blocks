@@ -100,12 +100,12 @@ We now need to update `handleEvent` to update the game state based on this event
 
 If we are processing the `AppCycle` event, take the old background colour, apply the `nextColour` function to it, and use the result as the new background colour:
 ```haskell
-handleEvent :: GameState
-            -> AppEvent
+handleEvent :: AppEvent
             -> GameState
-handleEvent gs AppCycle = gs { backgroundColour = nextColour . backgroundColour $ gs }
-handleEvent gs AppQuit  = gs { hasQuit = True }
-handleEvent gs _        = gs
+            -> GameState
+handleEvent AppCycle gs = gs { backgroundColour = nextColour . backgroundColour $ gs }
+handleEvent AppQuit  gs = gs { hasQuit = True }
+handleEvent _        gs = gs
 ```
 
 ## Updating the rendering

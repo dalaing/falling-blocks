@@ -44,11 +44,11 @@ toAppEvent event =
     _ -> AppOther event
 
 -- | Update the 'GameState' based on an 'AppEvent'.
-handleEvent :: GameState
-            -> AppEvent
+handleEvent :: AppEvent
             -> GameState
-handleEvent gs AppQuit = gs { hasQuit = True }
-handleEvent gs _ = gs
+            -> GameState
+handleEvent AppQuit gs = gs { hasQuit = True }
+handleEvent  _ gs = gs
 
 -- | Update the 'GameState' by fetching the pending SDL events and
 -- processing them.
@@ -56,4 +56,4 @@ doEvents :: GameState
          -> IO GameState
 doEvents gs = do
   es <- pollEvents
-  return $ foldr (flip handleEvent . toAppEvent) gs es
+  return $ foldr (handleEvent . toAppEvent) gs es

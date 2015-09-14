@@ -116,11 +116,11 @@ The other things is doing the rendering based on our game state, but we don't ha
 
 We connect the application events to the game state with `handleEvent`:
 ```haskell
-handleEvent :: GameState
-            -> AppEvent
+handleEvent :: AppEvent
             -> GameState
-handleEvent gs AppQuit = gs { hasQuit = true }
-handleEvent gs _ = gs
+            -> GameState
+handleEvent AppQuit gs = gs { hasQuit = true }
+handleEvent _       gs = gs
 ```
 
 We have 
@@ -135,7 +135,7 @@ doEvents :: GameState
          -> IO GameState
 doEvents gs = do
   es <- pollEvents
-  return $ foldr (flip handleEvent . toAppEvent) gs es
+  return $ foldr (handleEvent . toAppEvent) gs es
 ```
 
 ## Rendering the game state
