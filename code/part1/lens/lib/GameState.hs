@@ -17,10 +17,8 @@ import           Colour          (Colour (..))
 
 -- | The state of the game.
 data GameState = GameState {
-    -- | The background colour
-    _backgroundColour :: Colour
-    -- | Whether or not the user has quit
-  , _hasQuit          :: Bool
+    _backgroundColour :: Colour -- ^ The background colour
+  , _hasQuit          :: Bool   -- ^ Whether or not the user has quit
   } deriving (Eq, Show)
 
 makeLenses ''GameState

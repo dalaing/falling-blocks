@@ -71,8 +71,7 @@ We just need to track whether or not we have quit.
 
 ```haskell
 data GameState = GameState {
-    -- | Whether or not the user has quit
-    hasQuit :: Bool
+    hasQuit :: Bool 
   } deriving (Eq, Show)
 ```
 
@@ -168,10 +167,10 @@ gameLoop :: Renderer
          -> GameState
          -> IO ()
 gameLoop r s = do
-  -- update the GameState based on the events
-  s' <- doEvents s
   -- render the game
   render r
+  -- update the GameState based on the events
+  s' <- doEvents s
   -- check to see if the user has quit
   let q = hasQuit s'
   -- if not, keep going

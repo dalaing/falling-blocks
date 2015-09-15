@@ -22,10 +22,8 @@ import           GameState                (GameState (..))
 
 -- | The 'AppEvent' type.
 data AppEvent =
-  -- | Quit event
-    AppQuit
-  -- | Any SDL event we don't handle
-  | AppOther Event
+    AppQuit         -- ^ Quit event
+  | AppOther Event  -- ^ Any SDL event we don't handle
   deriving (Eq, Show)
 
 -- | Converts an SDL event to an 'AppEvent'.

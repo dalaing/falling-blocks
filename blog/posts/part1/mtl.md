@@ -291,30 +291,6 @@ doEvents = do
 
 ## Updating the rendering
 
-```haskell
-background, render :: Renderer
-                   -> GameState
-                   -> IO ()
-```
-
-```haskell
-background, render :: MonadIO m
-                   => Renderer
-                   -> GameState
-                   -> m ()
-```
-
-```haskell
-background, render :: (MonadState GameState m, MonadIO m)
-                   => Renderer
-                   -> m ()
-```
-
-```haskell
-background, render :: (MonadReader Renderer m, MonadState GameState m, MonadIO m)
-                   => m ()
-```
-
 We can do the transformations much like we did with `handleEvent`.
 
 We start with what we have:
@@ -456,10 +432,10 @@ gameLoop :: Renderer
          -> GameState
          -> IO ()
 gameLoop r s = do
+  -- render the game
+  render r s
   -- update the GameState based on the events
   s' <- doEvents s
-  -- render the game
-  render r s'
   -- check to see if the user has quit
   let q = hasQuit s'
   -- if not, keep going
@@ -470,10 +446,10 @@ to this:
 gameLoop :: (MonadReader Renderer m, MonadState GameState m, MonadIO m)
          => m ()
 gameLoop = do
-  -- update the GameState based on the events
-  doEvents
   -- render the game
   render
+  -- update the GameState based on the events
+  doEvents
   -- check to see if the user has quit
   q <- gets hasQuit
   -- if not, keep going

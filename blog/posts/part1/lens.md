@@ -23,18 +23,14 @@ First we need some lenses.
 We'll add them to our `GameState`, by changing from this:
 ```haskell
 data GameState = GameState {
-    -- | The background colour
     backgroundColour :: Colour
-    -- | Whether or not the user has quit
   , hasQuit          :: Bool
   } deriving (Eq, Show)
 ```
 to this:
 ```haskell
 data GameState = GameState {
-    -- | The background colour
     _backgroundColour :: Colour
-    -- | Whether or not the user has quit
   , _hasQuit          :: Bool
   } deriving (Eq, Show)
 
@@ -195,10 +191,10 @@ The change to the game loop is just a matter of swapping from `gets hasQuit`:
 gameLoop :: (MonadReader Renderer m, MonadState GameState m, MonadIO m)
          => m ()
 gameLoop = do
-  -- update the GameState based on the events
-  doEvents
   -- render the game
   render
+  -- update the GameState based on the events
+  doEvents
   -- check to see if the user has quit
   q <- gets hasQuit
   -- if not, keep going
@@ -209,10 +205,10 @@ to `use hasQuit`:
 gameLoop :: (MonadReader Renderer m, MonadState GameState m, MonadIO m)
          => m ()
 gameLoop = do
-  -- update the GameState based on the events
-  doEvents
   -- render the game
   render
+  -- update the GameState based on the events
+  doEvents
   -- check to see if the user has quit
   q <- use hasQuit
   -- if not, keep going
@@ -349,6 +345,6 @@ This is another case where we can make things easier to reason about and easier 
 Now we've got lenses in our code.
 It looks like small wins so far, but they'll add up as things get more complex.
 
-<!--[Next](./timer.html) we'll drive the updates using a timer, and will introduce STM along the way.-->
+[Next](./timer.html) we'll drive the updates using a timer, and will introduce STM along the way.
 
 

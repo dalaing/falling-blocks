@@ -10,10 +10,8 @@ import           Colour (Colour (..))
 
 -- | The state of the game.
 data GameState = GameState {
-    -- | The background colour
-    backgroundColour :: Colour
-    -- | Whether or not the user has quit
-  , hasQuit          :: Bool
+    backgroundColour :: Colour  -- ^ The background colour
+  , hasQuit          :: Bool    -- ^ Whether or not the user has quit
   } deriving (Eq, Show)
 
 -- | A default 'GameState'.

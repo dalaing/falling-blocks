@@ -7,8 +7,7 @@ module GameState (
 
 -- | The state of the game.
 data GameState = GameState {
-    -- | Whether or not the user has quit
-    hasQuit :: Bool
+    hasQuit :: Bool -- ^ Whether or not the user has quit
   } deriving (Eq, Show)
 
 -- | A default 'GameState'.

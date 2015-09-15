@@ -51,9 +51,7 @@ toSDLColour Blue  = V4 0 0 255 255
 We need to add the background colour to our game state:
 ```haskell
 data GameState = GameState {
-    -- | The background colour
     backgroundColour :: Colour
-    -- | Whether or not the user has quit
   , hasQuit          :: Bool
   } deriving (Eq, Show)
 ```
@@ -69,11 +67,8 @@ defaultGameState = GameState Blue False
 We'll add a new event that indicates that the background colour should be cycled:
 ```haskell
 data AppEvent =
-  -- | Cycle event
     AppCycle
-  -- | Quit event
   | AppQuit
-  -- | Any SDL event we don't handle
   | AppOther Event
   deriving (Eq, Show)
 ```
@@ -139,10 +134,10 @@ gameLoop :: Renderer
          -> GameState
          -> IO ()
 gameLoop r s = do
+  -- render the game
+  render r s
   -- update the GameState based on the events
   s' <- doEvents s
-  -- render the game
-  render r s'
   -- check to see if the user has quit
   let q = hasQuit s'
   -- if not, keep going

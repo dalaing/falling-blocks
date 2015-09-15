@@ -26,10 +26,10 @@ import           Render               (render)
 gameLoop :: (HasConfig c, MonadReader c m, MonadState GameState m, MonadIO m)
          => m ()
 gameLoop = do
-  -- update the GameState based on the events
-  doEvents
   -- render the game
   render
+  -- update the GameState based on the events
+  doEvents
   -- check to see if the user has quit
   q <- use hasQuit
   -- if not, keep going
