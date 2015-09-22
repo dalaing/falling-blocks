@@ -62,9 +62,7 @@ toSDLColour <span class="dt">Blue</span>  <span class="fu">=</span> <span class=
 <h2 id="updating-the-game-state">Updating the game state</h2>
 <p>We need to add the background colour to our game state:</p>
 <div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">GameState</span> <span class="fu">=</span> <span class="dt">GameState</span> {
-    <span class="co">-- | The background colour</span>
 <span class="ot">    backgroundColour ::</span> <span class="dt">Colour</span>
-    <span class="co">-- | Whether or not the user has quit</span>
   ,<span class="ot"> hasQuit          ::</span> <span class="dt">Bool</span>
   } <span class="kw">deriving</span> (<span class="dt">Eq</span>, <span class="dt">Show</span>)</code></pre></div>
 <p>The default game state gets updated to reflect this:</p>
@@ -73,11 +71,9 @@ defaultGameState <span class="fu">=</span> <span class="dt">GameState</span> <sp
 <h2 id="updating-the-event-handling">Updating the event handling</h2>
 <p>We’ll add a new event that indicates that the background colour should be cycled:</p>
 <div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">AppEvent</span> <span class="fu">=</span>
-  <span class="co">-- | Cycle event</span>
-    <span class="dt">AppCycle</span>
-  <span class="co">-- | Quit event</span>
+    <span class="dt">AppRender</span>
+  <span class="fu">|</span> <span class="dt">AppCycle</span>
   <span class="fu">|</span> <span class="dt">AppQuit</span>
-  <span class="co">-- | Any SDL event we don't handle</span>
   <span class="fu">|</span> <span class="dt">AppOther</span> <span class="dt">Event</span>
   <span class="kw">deriving</span> (<span class="dt">Eq</span>, <span class="dt">Show</span>)</code></pre></div>
 <p>This event gets triggered when the user presses the space key:</p>
@@ -95,14 +91,6 @@ toAppEvent event <span class="fu">=</span>
       <span class="kw">else</span>
         <span class="dt">AppOther</span> event
     _ <span class="ot">-&gt;</span> <span class="dt">AppOther</span> event</code></pre></div>
-<p>We now need to update <code>handleEvent</code> to update the game state based on this event.</p>
-<p>If we are processing the <code>AppCycle</code> event, take the old background colour, apply the <code>nextColour</code> function to it, and use the result as the new background colour:</p>
-<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">handleEvent ::</span> <span class="dt">AppEvent</span>
-            <span class="ot">-&gt;</span> <span class="dt">GameState</span>
-            <span class="ot">-&gt;</span> <span class="dt">GameState</span>
-handleEvent <span class="dt">AppCycle</span> gs <span class="fu">=</span> gs { backgroundColour <span class="fu">=</span> nextColour <span class="fu">.</span> backgroundColour <span class="fu">$</span> gs }
-handleEvent <span class="dt">AppQuit</span>  gs <span class="fu">=</span> gs { hasQuit <span class="fu">=</span> <span class="dt">True</span> }
-handleEvent _        gs <span class="fu">=</span> gs</code></pre></div>
 <h2 id="updating-the-rendering">Updating the rendering</h2>
 <p>Unsurprisingly, we now need to have access to the background colour while rendering the background. We also have to convert it from our abstract <code>Colour</code> type to something SDL can deal with, using <code>toSDLColour</code>:</p>
 <div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">background ::</span> <span class="dt">Renderer</span>
@@ -119,19 +107,13 @@ render r s <span class="fu">=</span> <span class="kw">do</span>
   background r s
   present r</code></pre></div>
 <h2 id="updating-the-main-loop">Updating the main loop</h2>
-<p>The only other change we have to make is to pass the <code>GameState</code> to the <code>render</code> function in our game loop:</p>
-<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">gameLoop ::</span> <span class="dt">Renderer</span>
-         <span class="ot">-&gt;</span> <span class="dt">GameState</span>
-         <span class="ot">-&gt;</span> <span class="dt">IO</span> ()
-gameLoop r s <span class="fu">=</span> <span class="kw">do</span>
-  <span class="co">-- update the GameState based on the events</span>
-  s' <span class="ot">&lt;-</span> doEvents s
-  <span class="co">-- render the game</span>
-  render r s'
-  <span class="co">-- check to see if the user has quit</span>
-  <span class="kw">let</span> q <span class="fu">=</span> hasQuit s'
-  <span class="co">-- if not, keep going</span>
-  unless q (gameLoop r s')</code></pre></div>
+<p>We now need to add a case in <code>gameStep</code> to handle the <code>AppCycle</code> event. To do this we take the old background colour, apply the <code>nextColour</code> function to it, and use the result as the new background colour:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">gameStep _ <span class="dt">AppCycle</span> gs <span class="fu">=</span> 
+  return <span class="fu">$</span> gs { backgroundColour <span class="fu">=</span> nextColour <span class="fu">.</span> backgroundColour <span class="fu">$</span> gs }</code></pre></div>
+<p>The only other change we have to make is to pass the <code>GameState</code> to the <code>render</code> function:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">gameStep r <span class="dt">AppRender</span> gs <span class="fu">=</span> <span class="kw">do</span>
+  render r gs
+  return gs</code></pre></div>
 <h1 id="conclusion">Conclusion</h1>
 <p>That was a fairly small change in functionality, and we’re in a much better place for motivating the changes that are coming up.</p>
 <p><a href="./mtl.html">Next</a> we’ll add monad transformers into the picture.</p>

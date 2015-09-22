@@ -110,100 +110,29 @@ foo <span class="fu">=</span> <span class="kw">do</span>
 <p>I like that a great deal, since it means I can get some code written quickly and nail down the details of the stack later on.</p>
 <p>That should be enough to get started, so let us dig in.</p>
 <h2 id="updating-the-event-handling">Updating the event handling</h2>
-<p>If we look at the current type signature of <code>handleEvent</code>:</p>
-<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">handleEvent ::</span> <span class="dt">AppEvent</span>
-            <span class="ot">-&gt;</span> <span class="dt">GameState</span>
-            <span class="ot">-&gt;</span> <span class="dt">GameState</span></code></pre></div>
-<p>we see that the only effect we’re after is managing state of type <code>GameState</code>.</p>
-<p>We can express this like so:</p>
-<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">handleEvent ::</span> <span class="dt">MonadState</span> <span class="dt">GameState</span> m
-            <span class="ot">=&gt;</span> <span class="dt">AppEvent</span>
-            <span class="ot">-&gt;</span> m ()</code></pre></div>
-<p>The change to the code is minor.</p>
-<p>We start with this:</p>
-<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">handleEvent ::</span> <span class="dt">AppEvent</span>
-            <span class="ot">-&gt;</span> <span class="dt">GameState</span>
-            <span class="ot">-&gt;</span> <span class="dt">GameState</span>
-handleEvent <span class="dt">AppCycle</span> gs <span class="fu">=</span> gs { backgroundColour <span class="fu">=</span> nextColour <span class="fu">.</span> backgroundColour <span class="fu">$</span> gs }
-handleEvent <span class="dt">AppQuit</span>  gs <span class="fu">=</span> gs { hasQuit <span class="fu">=</span> <span class="dt">True</span> }
-handleEvent _        gs <span class="fu">=</span> gs</code></pre></div>
-<p>which is updating the state using a function of type <code>GameState -&gt; GameState</code>.</p>
-<p>That is exactly what <code>modify</code> does:</p>
-<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">modify ::</span> <span class="dt">MonadState</span> s m <span class="ot">=&gt;</span> (s <span class="ot">-&gt;</span> s) <span class="ot">-&gt;</span> m ()</code></pre></div>
-<p>so we use that:</p>
-<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">handleEvent ::</span> <span class="dt">MonadState</span> <span class="dt">GameState</span> m
-            <span class="ot">=&gt;</span> <span class="dt">AppEvent</span>
-            <span class="ot">-&gt;</span> m ()
-handleEvent <span class="dt">AppCycle</span> <span class="fu">=</span> modify <span class="fu">$</span> \gs <span class="ot">-&gt;</span> gs { backgroundColour <span class="fu">=</span> nextColour <span class="fu">.</span> backgroundColour <span class="fu">$</span> gs }
-handleEvent <span class="dt">AppQuit</span>  <span class="fu">=</span> modify <span class="fu">$</span> \gs <span class="ot">-&gt;</span> gs { hasQuit <span class="fu">=</span> <span class="dt">True</span> }
-handleEvent _        <span class="fu">=</span> return ()</code></pre></div>
-<p>We also need to update <code>doEvents</code>:</p>
-<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">doEvents ::</span> <span class="dt">GameState</span>
-         <span class="ot">-&gt;</span> <span class="dt">IO</span> <span class="dt">GameState</span></code></pre></div>
-<p>which is managing <code>IO</code> effects as well as managing state of type <code>GameState</code>.</p>
-<p>We can bring the <code>IO</code> into an <code>mtl</code> style typeclass constraint with <code>MonadIO m</code>:</p>
-<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">doEvents ::</span> <span class="dt">MonadIO</span> m
-         <span class="ot">=&gt;</span> <span class="dt">GameState</span>
-         <span class="ot">-&gt;</span> m <span class="dt">GameState</span></code></pre></div>
-<p>after which we can add the <code>MonadState GameState m</code> constraint:</p>
-<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">doEvents ::</span> (<span class="dt">MonadState</span> <span class="dt">GameState</span> m, <span class="dt">MonadIO</span> m)
-         <span class="ot">=&gt;</span> m ()</code></pre></div>
-<p>We’ll update the code slowly for this one.</p>
-<p>We start with this:</p>
-<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">doEvents ::</span> <span class="dt">GameState</span>
-         <span class="ot">-&gt;</span> <span class="dt">IO</span> <span class="dt">GameState</span>
-doEvents gs <span class="fu">=</span> <span class="kw">do</span>
-  es <span class="ot">&lt;-</span> pollEvents
-  return <span class="fu">$</span> foldr (handleEvent <span class="fu">.</span> toAppEvent) gs es</code></pre></div>
-<p>We can use <code>liftIO</code> to lift a concrete <code>IO</code> action to the more abstract <code>MonadIO m</code> action:</p>
+<p>First we will update <code>gatherEvents</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">gatherEvents ::</span> <span class="dt">IO</span> [<span class="dt">AppEvent</span>]</code></pre></div>
+<p>This is managing <code>IO</code> effects, soe can bring the <code>IO</code> into an <code>mtl</code> style typeclass constraint with <code>MonadIO m</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">gatherEvents ::</span> <span class="dt">MonadIO</span> m
+         <span class="ot">=&gt;</span> m [<span class="dt">AppEvent</span>]</code></pre></div>
+<p>To do this we will use <code>liftIO</code>, which lifts a concrete <code>IO</code> action to the more abstract <code>MonadIO m</code> action:</p>
 <div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">liftIO ::</span> <span class="dt">MonadIO</span> m <span class="ot">=&gt;</span> <span class="dt">IO</span> a <span class="ot">-&gt;</span> m a</code></pre></div>
-<p>which gets us to the second iteration of <code>doEvents</code>:</p>
-<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">doEvents ::</span> <span class="dt">MonadIO</span> m
-         <span class="ot">=&gt;</span> <span class="dt">GameState</span>
-         <span class="ot">-&gt;</span> m <span class="dt">GameState</span>
-doEvents gs <span class="fu">=</span> <span class="kw">do</span>
+<p>to move from</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">gatherEvents ::</span> <span class="dt">IO</span> [<span class="dt">AppEvent</span>]
+gatherEvents <span class="fu">=</span> <span class="kw">do</span>
+  <span class="co">-- gather the pending SDL events</span>
+  es <span class="ot">&lt;-</span> pollEvents
+  <span class="co">-- add an 'AppRender' event to the front of the list</span>
+  return <span class="fu">$</span> <span class="dt">AppRender</span> <span class="fu">:</span> fmap toAppEvent es</code></pre></div>
+<p>to</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">gatherEvents ::</span> <span class="dt">MonadIO</span> m
+             <span class="ot">=&gt;</span> m [<span class="dt">AppEvent</span>]
+gatherEvents <span class="fu">=</span> <span class="kw">do</span>
+  <span class="co">-- gather the pending SDL events</span>
   es <span class="ot">&lt;-</span> liftIO pollEvents
-  return <span class="fu">$</span> foldr (handleEvent <span class="fu">.</span> toAppEvent) gs es</code></pre></div>
-<p>We now need to deal with the new <code>handleEvent</code>, which operates with <code>MonadState GameState m</code> in the context.</p>
-<p>We can use <code>traverse_</code> from <code>Data.Foldable</code> in the <code>base</code> package to do this.</p>
-<p>The type signature is:</p>
-<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">traverse_ ::</span> (<span class="dt">Foldable</span> t, <span class="dt">Applicative</span> f)
-          <span class="ot">=&gt;</span> (a <span class="ot">-&gt;</span> f b)
-          <span class="ot">-&gt;</span> t a
-          <span class="ot">-&gt;</span> f ()</code></pre></div>
-<p>There is a <code>Foldable</code> instance for <code>List</code>, so we can specialize to:</p>
-<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">traverse_ ::</span> <span class="dt">Applicative</span> f
-          <span class="ot">=&gt;</span> (a <span class="ot">-&gt;</span> f b)
-          <span class="ot">-&gt;</span> [a]
-          <span class="ot">-&gt;</span> f ()</code></pre></div>
-<p>We can partly specialize the <code>Applicative</code> constraint. With <code>MonadState GameState m</code> in context, <code>m</code> is a <code>Monad</code>, and every <code>Monad</code> is an <code>Applicative</code>.</p>
-<p>This gives us: ``haskell traverse_ :: MonadState GameState m =&gt; (a -&gt; m b) -&gt; [a] -&gt; m () ```</p>
-<p>If we use <code>AppEvent</code> for <code>a</code> and <code>()</code> for <code>b</code> we get as far as we can for <code>traverse_</code>:</p>
-<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">traverse_ ::</span> <span class="dt">MonadState</span> <span class="dt">GameState</span> m
-          <span class="ot">=&gt;</span> (<span class="dt">AppEvent</span> <span class="ot">-&gt;</span> m ())
-          <span class="ot">-&gt;</span> [<span class="dt">AppEvent</span>]
-          <span class="ot">-&gt;</span> m ()</code></pre></div>
-<p>We already have a function with the right type for the first argument:</p>
-<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">handleEvent ::</span> <span class="dt">MonadState</span> <span class="dt">GameState</span> m
-            <span class="ot">=&gt;</span> <span class="dt">AppEvent</span>
-            <span class="ot">-&gt;</span> m ()</code></pre></div>
-<p>but the list of events we get from <code>pollEvents</code> has type <code>[Event]</code>.</p>
-<p>We can bring <code>toAppEvent</code> into play here:</p>
-<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">handleEvent <span class="fu">.</span><span class="ot"> toAppEvent ::</span> <span class="dt">MonadState</span> <span class="dt">GameState</span> m
-                         <span class="ot">=&gt;</span> <span class="dt">Event</span>
-                         <span class="ot">-&gt;</span> m ()</code></pre></div>
-<p>which gives us</p>
-<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">traverse_ (handleEvent <span class="fu">.</span> toAppEvent)<span class="ot"> ::</span> <span class="dt">MonadState</span> <span class="dt">GameState</span> m
-                                     <span class="ot">=&gt;</span> [<span class="dt">Event</span>]
-                                     <span class="ot">-&gt;</span> m ()</code></pre></div>
-<p>That is what we need for the final version of <code>doEvents</code>:</p>
-<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">doEvents ::</span> (<span class="dt">MonadState</span> <span class="dt">GameState</span> m, <span class="dt">MonadIO</span> m)
-         <span class="ot">=&gt;</span> m ()
-doEvents <span class="fu">=</span> <span class="kw">do</span>
-  es <span class="ot">&lt;-</span> liftIO pollEvents
-  traverse_ (handleEvent <span class="fu">.</span> toAppEvent) es</code></pre></div>
+  <span class="co">-- add an 'AppRender' event to the front of the list</span>
+  return <span class="fu">$</span> <span class="dt">AppRender</span> <span class="fu">:</span> fmap toAppEvent es</code></pre></div>
 <h2 id="updating-the-rendering">Updating the rendering</h2>
-<p>We can do the transformations much like we did with <code>handleEvent</code>.</p>
 <p>We start with what we have:</p>
 <div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">background ::</span> <span class="dt">Renderer</span>
            <span class="ot">-&gt;</span> <span class="dt">GameState</span>
@@ -234,8 +163,16 @@ background r s <span class="fu">=</span> liftIO <span class="fu">$</span> <span 
 render r s <span class="fu">=</span> liftIO <span class="fu">$</span> <span class="kw">do</span>
   background r s
   present r</code></pre></div>
-<p>We then bring <code>MonadState GameState m</code> into the fold.</p>
-<p>We can use <code>gets</code> for this:</p>
+<p>Since the <code>GameState</code> will be operating in the <code>State</code> monad elsewhere, we bring the passing of the <code>GameState</code> through these functions into play with the <code>MonadState GameState m</code> constraint, to move from</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">background,<span class="ot"> render ::</span> <span class="dt">MonadIO</span> m
+                   <span class="ot">=&gt;</span> <span class="dt">Renderer</span>
+                   <span class="ot">-&gt;</span> <span class="dt">GameState</span>
+                   <span class="ot">-&gt;</span> m ()</code></pre></div>
+<p>to</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">background,<span class="ot"> render ::</span> (<span class="dt">MonadState</span> <span class="dt">GameState</span> m, <span class="dt">MonadIO</span> m)
+                   <span class="ot">-&gt;</span> <span class="dt">Renderer</span>
+                   <span class="ot">-&gt;</span> m ()</code></pre></div>
+<p>We can use <code>gets</code> to access the game state:</p>
 <div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">gets ::</span> <span class="dt">MonadState</span> s m <span class="ot">=&gt;</span> (s <span class="ot">-&gt;</span> a) <span class="ot">-&gt;</span> m a </code></pre></div>
 <p>Specialized to <code>GameState</code> we have:</p>
 <div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">gets ::</span> <span class="dt">MonadState</span> <span class="dt">GameState</span> m <span class="ot">=&gt;</span> (<span class="dt">GameState</span> <span class="ot">-&gt;</span> a) <span class="ot">-&gt;</span> m a </code></pre></div>
@@ -262,7 +199,14 @@ render r <span class="fu">=</span> liftIO <span class="fu">$</span> <span class=
   background r
   present r</code></pre></div>
 <p>We can save some plumbing of the <code>Renderer</code> in the surrounding code by introducing <code>MonadReader Renderer m</code>.</p>
-<p>This will use <code>ask</code> to get the <code>Renderer</code> whenever we need it:</p>
+<p>This changes the types from</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">background,<span class="ot"> render ::</span> (<span class="dt">MonadState</span> <span class="dt">GameState</span> m, <span class="dt">MonadIO</span> m)
+                   <span class="ot">=&gt;</span> <span class="dt">Renderer</span>
+                   <span class="ot">-&gt;</span> m ()</code></pre></div>
+<p>to</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">background,<span class="ot"> render ::</span> (<span class="dt">MonadReader</span> <span class="dt">Renderer</span> m, <span class="dt">MonadState</span> <span class="dt">GameState</span> m, <span class="dt">MonadIO</span> m)
+                   <span class="ot">=&gt;</span> m ()</code></pre></div>
+<p>We will then use <code>ask</code> to get the <code>Renderer</code> whenever we need it:</p>
 <div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">ask ::</span> <span class="dt">MonadReader</span> r m <span class="ot">-&gt;</span> m r</code></pre></div>
 <p>which specializes to:</p>
 <div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">ask ::</span> <span class="dt">MonadReader</span> <span class="dt">Renderer</span> m <span class="ot">-&gt;</span> m <span class="dt">Renderer</span></code></pre></div>
@@ -289,8 +233,114 @@ render <span class="fu">=</span> <span class="kw">do</span>
 <p>In general, we don’t add constraints that we aren’t going to use. This makes it easier to reason about the what a function (and the functions it may call) can or cannot do.</p>
 <p>While we’re reasoning about code, we know that <code>stateless</code> can’t modify the <code>GameState</code>. While we’re refactoring code, we are prevented from accidentally modifying the <code>GameState</code> either directly or indirectly, because the compiler will stop us.</p>
 <h2 id="updating-the-main-loop">Updating the main loop</h2>
-<p>The update to the main loop involves swapping the plumbing of the <code>Renderer</code> and <code>GameState</code> through everything and the addition of the various typeclass constraints that we’ve picked up along the way.</p>
-<p>We also need to access the <code>hasQuit</code> field of the <code>GameState</code>.</p>
+<p>We will update the type signature of <code>gameStep</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">gameStep ::</span> <span class="dt">Renderer</span>
+         <span class="ot">-&gt;</span> <span class="dt">AppEvent</span>
+         <span class="ot">-&gt;</span> <span class="dt">GameState</span> 
+         <span class="ot">-&gt;</span> <span class="dt">IO</span> <span class="dt">GameState</span></code></pre></div>
+<p>so that the handling of the <code>IO</code> effects is more abstract:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">gameStep ::</span> <span class="dt">MonadIO</span> m
+         <span class="ot">=&gt;</span> <span class="dt">Renderer</span>
+         <span class="ot">-&gt;</span> <span class="dt">AppEvent</span>
+         <span class="ot">-&gt;</span> <span class="dt">GameState</span> 
+         <span class="ot">-&gt;</span> m <span class="dt">GameState</span></code></pre></div>
+<p>and the state handling is done by the <code>State</code> monad:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">gameStep ::</span> (<span class="dt">MonadState</span> <span class="dt">GameState</span> m, <span class="dt">MonadIO</span> m)
+         <span class="ot">=&gt;</span> <span class="dt">Renderer</span>
+         <span class="ot">-&gt;</span> <span class="dt">AppEvent</span>
+         <span class="ot">-&gt;</span> m ()</code></pre></div>
+<p>and the passing through of the configuration data is done by the <code>Reader</code> monad:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">gameStep ::</span> (<span class="dt">MonadReader</span> <span class="dt">Renderer</span> m, <span class="dt">MonadState</span> <span class="dt">GameState</span> m, <span class="dt">MonadIO</span> m)
+         <span class="ot">=&gt;</span> <span class="dt">AppEvent</span>
+         <span class="ot">-&gt;</span> m ()</code></pre></div>
+<p>The changes to each of the cases in the function are minor.</p>
+<p>We start with this:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">gameStep ::</span> <span class="dt">Renderer</span>
+         <span class="ot">-&gt;</span> <span class="dt">AppEvent</span>
+         <span class="ot">-&gt;</span> <span class="dt">GameState</span> 
+         <span class="ot">-&gt;</span> <span class="dt">IO</span> <span class="dt">GameState</span>
+gameStep r <span class="dt">AppRender</span> gs <span class="fu">=</span> <span class="kw">do</span>
+  render r gs
+  return gs
+gameStep _ <span class="dt">AppCycle</span> gs <span class="fu">=</span> 
+  return <span class="fu">$</span> gs { backgroundColour <span class="fu">=</span> nextColour <span class="fu">.</span> backgroundColour <span class="fu">$</span> gs }
+gameStep _ <span class="dt">AppQuit</span> gs <span class="fu">=</span> 
+  return <span class="fu">$</span> gs { hasQuit <span class="fu">=</span> <span class="dt">True</span> }
+gameStep _ _ gs <span class="fu">=</span> 
+  return gs</code></pre></div>
+<p>We no longer need to thread the <code>Renderer</code> and <code>GameState</code> through to the call to <code>render</code>, so</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">gameStep r <span class="dt">AppRender</span> gs <span class="fu">=</span> <span class="kw">do</span>
+  render r gs
+  return gs</code></pre></div>
+<p>becomes</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">gameStep <span class="dt">AppRender</span> <span class="fu">=</span>
+  render</code></pre></div>
+<p>The default case has an even simpler change, from</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">gameStep _ _ gs <span class="fu">=</span> 
+  return gs</code></pre></div>
+<p>to</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">gameStep _ <span class="fu">=</span>
+  return ()</code></pre></div>
+<p>This leaves the two cases that involve updating the state using a function of type <code>GameState -&gt; GameState</code>.</p>
+<p>That is exactly what <code>modify</code> does:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">modify ::</span> <span class="dt">MonadState</span> s m <span class="ot">=&gt;</span> (s <span class="ot">-&gt;</span> s) <span class="ot">-&gt;</span> m ()</code></pre></div>
+<p>so we use that to go from</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">gameStep _ <span class="dt">AppCycle</span> gs <span class="fu">=</span> 
+  return <span class="fu">$</span> gs { backgroundColour <span class="fu">=</span> nextColour <span class="fu">.</span> backgroundColour <span class="fu">$</span> gs }
+gameStep _ <span class="dt">AppQuit</span> gs <span class="fu">=</span> 
+  return <span class="fu">$</span> gs { hasQuit <span class="fu">=</span> <span class="dt">True</span> }</code></pre></div>
+<p>to</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">gameStep <span class="dt">AppCycle</span> <span class="fu">=</span>
+  modify <span class="fu">$</span> \gs <span class="ot">-&gt;</span> gs { backgroundColour <span class="fu">=</span> nextColour <span class="fu">.</span> backgroundColour <span class="fu">$</span> gs }
+gameStep <span class="dt">AppQuit</span> <span class="fu">=</span>
+  modify <span class="fu">$</span> \gs <span class="ot">-&gt;</span> gs { hasQuit <span class="fu">=</span> <span class="dt">True</span> }</code></pre></div>
+<p>The final result is:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">gameStep ::</span> (<span class="dt">MonadReader</span> <span class="dt">Renderer</span> m, <span class="dt">MonadState</span> <span class="dt">GameState</span> m, <span class="dt">MonadIO</span> m)
+         <span class="ot">=&gt;</span> <span class="dt">AppEvent</span> 
+         <span class="ot">-&gt;</span> m ()
+gameStep <span class="dt">AppRender</span> <span class="fu">=</span>
+  render
+gameStep <span class="dt">AppCycle</span> <span class="fu">=</span>
+  modify <span class="fu">$</span> \gs <span class="ot">-&gt;</span> gs { backgroundColour <span class="fu">=</span> nextColour <span class="fu">.</span> backgroundColour <span class="fu">$</span> gs }
+gameStep <span class="dt">AppQuit</span> <span class="fu">=</span>
+  modify <span class="fu">$</span> \gs <span class="ot">-&gt;</span> gs { hasQuit <span class="fu">=</span> <span class="dt">True</span> }
+gameStep _ <span class="fu">=</span>
+  return ()</code></pre></div>
+<p>The update to the main loop involves removing the plumbing of the <code>Renderer</code> and <code>GameState</code> through everything and the addition of the various typeclass constraints that we’ve picked up along the way.</p>
+<p>For the previous version we used <code>gameStep</code> as part of a fold over the list of <code>AppEvent</code>s we got from a call to <code>gatherEvents</code>.</p>
+<p>We now need to deal with the new <code>gameStep</code>, which operates with <code>MonadReader Renderer m</code>, <code>MonadState GameState m</code> and <code>MonadIO m</code> in the context.</p>
+<p>We can use <code>traverse_</code> from <code>Data.Foldable</code> in the <code>base</code> package to do this.</p>
+<p>The type signature is:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">traverse_ ::</span> (<span class="dt">Foldable</span> t, <span class="dt">Applicative</span> f)
+          <span class="ot">=&gt;</span> (a <span class="ot">-&gt;</span> f b)
+          <span class="ot">-&gt;</span> t a
+          <span class="ot">-&gt;</span> f ()</code></pre></div>
+<p>There is a <code>Foldable</code> instance for <code>List</code>, so we can specialize to:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">traverse_ ::</span> <span class="dt">Applicative</span> f
+          <span class="ot">=&gt;</span> (a <span class="ot">-&gt;</span> f b)
+          <span class="ot">-&gt;</span> [a]
+          <span class="ot">-&gt;</span> f ()</code></pre></div>
+<p>We can partly specialize the <code>Applicative</code> constraint. With <code>MonadReader Renderer m</code>, <code>MonadState GameState m</code> and <code>MonadIO m</code> in context, <code>m</code> is a <code>Monad</code>, and every <code>Monad</code> is an <code>Applicative</code>.</p>
+<p>This gives us:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">traverse_ ::</span> (<span class="dt">MonadReader</span> <span class="dt">Renderer</span> m, <span class="dt">MonadState</span> <span class="dt">GameState</span> m, <span class="dt">MonadIO</span> m)
+          <span class="ot">=&gt;</span> (a <span class="ot">-&gt;</span> m b)
+          <span class="ot">-&gt;</span> [a]
+          <span class="ot">-&gt;</span> m ()</code></pre></div>
+<p>If we use <code>AppEvent</code> for <code>a</code> and <code>()</code> for <code>b</code> we get as far as we can for <code>traverse_</code>:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">traverse_ ::</span> (<span class="dt">MonadReader</span> <span class="dt">Renderer</span> m, <span class="dt">MonadState</span> <span class="dt">GameState</span> m, <span class="dt">MonadIO</span> m)
+          <span class="ot">=&gt;</span> (<span class="dt">AppEvent</span> <span class="ot">-&gt;</span> m ())
+          <span class="ot">-&gt;</span> [<span class="dt">AppEvent</span>]
+          <span class="ot">-&gt;</span> m ()</code></pre></div>
+<p>We already have a function with the right type for the first argument:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">gameStep ::</span> (<span class="dt">MonadReader</span> <span class="dt">Renderer</span> m, <span class="dt">MonadState</span> <span class="dt">GameState</span> m, <span class="dt">MonadIO</span> m)
+         <span class="ot">=&gt;</span> <span class="dt">AppEvent</span> 
+         <span class="ot">-&gt;</span> m ()</code></pre></div>
+<p>which gives us</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">traverse_<span class="ot"> gameStep ::</span> (<span class="dt">MonadReader</span> <span class="dt">Renderer</span> m, <span class="dt">MonadState</span> <span class="dt">GameState</span> m, <span class="dt">MonadIO</span> m)
+                   <span class="ot">=&gt;</span> [<span class="dt">AppEvent</span>]
+                   <span class="ot">-&gt;</span> m ()</code></pre></div>
+<p>which is just what we need to handle the output from <code>gatherEvents</code>.</p>
+<p>The <code>gameLoop</code> function also need to access the <code>hasQuit</code> field of the <code>GameState</code>.</p>
 <p>We can use <code>gets</code> again for this:</p>
 <div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">gets<span class="ot"> hasQuit ::</span> <span class="dt">MonadState</span> <span class="dt">GameState</span> m <span class="ot">=&gt;</span> m <span class="dt">Bool</span> </code></pre></div>
 <p>We go from this:</p>
@@ -298,10 +348,10 @@ render <span class="fu">=</span> <span class="kw">do</span>
          <span class="ot">-&gt;</span> <span class="dt">GameState</span>
          <span class="ot">-&gt;</span> <span class="dt">IO</span> ()
 gameLoop r s <span class="fu">=</span> <span class="kw">do</span>
-  <span class="co">-- update the GameState based on the events</span>
-  s' <span class="ot">&lt;-</span> doEvents s
-  <span class="co">-- render the game</span>
-  render r s'
+  <span class="co">-- gather the events</span>
+  es <span class="ot">&lt;-</span> gatherEvents
+  <span class="co">-- interpret the events</span>
+  s' <span class="ot">&lt;-</span> foldrM (gameStep r) s es
   <span class="co">-- check to see if the user has quit</span>
   <span class="kw">let</span> q <span class="fu">=</span> hasQuit s'
   <span class="co">-- if not, keep going</span>
@@ -310,10 +360,10 @@ gameLoop r s <span class="fu">=</span> <span class="kw">do</span>
 <div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">gameLoop ::</span> (<span class="dt">MonadReader</span> <span class="dt">Renderer</span> m, <span class="dt">MonadState</span> <span class="dt">GameState</span> m, <span class="dt">MonadIO</span> m)
          <span class="ot">=&gt;</span> m ()
 gameLoop <span class="fu">=</span> <span class="kw">do</span>
-  <span class="co">-- update the GameState based on the events</span>
-  doEvents
-  <span class="co">-- render the game</span>
-  render
+  <span class="co">-- gather the events</span>
+  es <span class="ot">&lt;-</span> gatherEvents
+  <span class="co">-- interpret the events</span>
+  traverse_ gameStep es
   <span class="co">-- check to see if the user has quit</span>
   q <span class="ot">&lt;-</span> gets hasQuit
   <span class="co">-- if not, keep going</span>

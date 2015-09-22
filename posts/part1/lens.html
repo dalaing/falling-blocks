@@ -42,16 +42,12 @@
 <h3 id="updating-the-game-state">Updating the game state</h3>
 <p>First we need some lenses. We’ll add them to our <code>GameState</code>, by changing from this:</p>
 <div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">GameState</span> <span class="fu">=</span> <span class="dt">GameState</span> {
-    <span class="co">-- | The background colour</span>
 <span class="ot">    backgroundColour ::</span> <span class="dt">Colour</span>
-    <span class="co">-- | Whether or not the user has quit</span>
   ,<span class="ot"> hasQuit          ::</span> <span class="dt">Bool</span>
   } <span class="kw">deriving</span> (<span class="dt">Eq</span>, <span class="dt">Show</span>)</code></pre></div>
 <p>to this:</p>
 <div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">GameState</span> <span class="fu">=</span> <span class="dt">GameState</span> {
-    <span class="co">-- | The background colour</span>
     _<span class="ot">backgroundColour ::</span> <span class="dt">Colour</span>
-    <span class="co">-- | Whether or not the user has quit</span>
   , _<span class="ot">hasQuit          ::</span> <span class="dt">Bool</span>
   } <span class="kw">deriving</span> (<span class="dt">Eq</span>, <span class="dt">Show</span>)
 
@@ -154,10 +150,10 @@ background <span class="fu">=</span> <span class="kw">do</span>
 <div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">gameLoop ::</span> (<span class="dt">MonadReader</span> <span class="dt">Renderer</span> m, <span class="dt">MonadState</span> <span class="dt">GameState</span> m, <span class="dt">MonadIO</span> m)
          <span class="ot">=&gt;</span> m ()
 gameLoop <span class="fu">=</span> <span class="kw">do</span>
-  <span class="co">-- update the GameState based on the events</span>
-  doEvents
   <span class="co">-- render the game</span>
   render
+  <span class="co">-- update the GameState based on the events</span>
+  doEvents
   <span class="co">-- check to see if the user has quit</span>
   q <span class="ot">&lt;-</span> gets hasQuit
   <span class="co">-- if not, keep going</span>
@@ -166,10 +162,10 @@ gameLoop <span class="fu">=</span> <span class="kw">do</span>
 <div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">gameLoop ::</span> (<span class="dt">MonadReader</span> <span class="dt">Renderer</span> m, <span class="dt">MonadState</span> <span class="dt">GameState</span> m, <span class="dt">MonadIO</span> m)
          <span class="ot">=&gt;</span> m ()
 gameLoop <span class="fu">=</span> <span class="kw">do</span>
-  <span class="co">-- update the GameState based on the events</span>
-  doEvents
   <span class="co">-- render the game</span>
   render
+  <span class="co">-- update the GameState based on the events</span>
+  doEvents
   <span class="co">-- check to see if the user has quit</span>
   q <span class="ot">&lt;-</span> use hasQuit
   <span class="co">-- if not, keep going</span>
@@ -254,7 +250,7 @@ main <span class="fu">=</span> <span class="kw">do</span>
 <p>This is another case where we can make things easier to reason about and easier to refactor by limiting the amount of context that a function gets to the minimum that it needs.</p>
 <h1 id="conclusion">Conclusion</h1>
 <p>Now we’ve got lenses in our code. It looks like small wins so far, but they’ll add up as things get more complex.</p>
-<!--[Next](./timer.html) we'll drive the updates using a timer, and will introduce STM along the way.-->
+<p><a href="./timer.html">Next</a> we’ll drive the updates using a timer, and will introduce STM along the way.</p>
     </div>
     
     <div class="panel-footer">

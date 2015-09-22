@@ -84,8 +84,7 @@ appLoop renderer <span class="fu">=</span> <span class="kw">do</span>
 <h2 id="the-game-state">The game state</h2>
 <p>The game state is pretty simple at this point. We just need to track whether or not we have quit.</p>
 <div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">GameState</span> <span class="fu">=</span> <span class="dt">GameState</span> {
-    <span class="co">-- | Whether or not the user has quit</span>
-<span class="ot">    hasQuit ::</span> <span class="dt">Bool</span>
+<span class="ot">    hasQuit ::</span> <span class="dt">Bool</span> 
   } <span class="kw">deriving</span> (<span class="dt">Eq</span>, <span class="dt">Show</span>)</code></pre></div>
 <p>We also add a default <code>GameState</code>:</p>
 <div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">defaultGameState ::</span> <span class="dt">GameState</span>
@@ -93,11 +92,14 @@ defaultGameState <span class="fu">=</span> <span class="dt">GameState</span> <sp
 <h2 id="our-own-event-type">Our own event type</h2>
 <p>We set up our own even type so that we can be explicit about the information that is important to us:</p>
 <div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">AppEvent</span> <span class="fu">=</span>
-    <span class="dt">AppQuit</span>
+    <span class="dt">AppRender</span>
+  <span class="fu">|</span> <span class="dt">AppQuit</span>
   <span class="fu">|</span> <span class="dt">AppOther</span> <span class="dt">Event</span>
   <span class="kw">deriving</span> (<span class="dt">Eq</span>, <span class="dt">Show</span>)</code></pre></div>
+<p>The only event that we will be reacting to is <code>AppQuit</code>.</p>
+<p>We will be adding a synthetic <code>AppRender</code> event into the mix so that we can drive all of our behaviour from a stream of <code>AppEvent</code>s. The hope is that this will give us better separation of concerns and that it will make testing easier.</p>
 <p>We have <code>AppOther</code> in there as a catch-all.</p>
-<p>It’s easy to convert from SDL events to our own event:</p>
+<p>It’s easy to repurpose the code from the example into code to convert from SDL events to <code>AppEvent</code>s:</p>
 <div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">toAppEvent ::</span> <span class="dt">Event</span>
            <span class="ot">-&gt;</span> <span class="dt">AppEvent</span>
 toAppEvent event <span class="fu">=</span>
@@ -111,26 +113,18 @@ toAppEvent event <span class="fu">=</span>
         <span class="kw">else</span>
           <span class="dt">AppOther</span> event
       _ <span class="ot">-&gt;</span> <span class="dt">AppOther</span> event</code></pre></div>
-<p>One of the two main things we need to deal with is the connection between our application events and the game state. The other things is doing the rendering based on our game state, but we don’t have to worry about it that in this case.</p>
-<p>We connect the application events to the game state with <code>handleEvent</code>:</p>
-<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">handleEvent ::</span> <span class="dt">AppEvent</span>
-            <span class="ot">-&gt;</span> <span class="dt">GameState</span>
-            <span class="ot">-&gt;</span> <span class="dt">GameState</span>
-handleEvent <span class="dt">AppQuit</span> gs <span class="fu">=</span> gs { hasQuit <span class="fu">=</span> true }
-handleEvent _       gs <span class="fu">=</span> gs</code></pre></div>
-<p>We have</p>
-<ul>
-<li><code>pollEvents</code> from <code>sdl2</code> to gather the pending SDL events</li>
-<li><code>toAppEvent</code> to convert SDL events to our application events</li>
-<li><code>handleEvent</code> to apply our application events to our game state</li>
-</ul>
-<p>We can tie them all together to get something that will update the <code>GameState</code>:</p>
-<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">doEvents ::</span> <span class="dt">GameState</span>
-         <span class="ot">-&gt;</span> <span class="dt">IO</span> <span class="dt">GameState</span>
-doEvents gs <span class="fu">=</span> <span class="kw">do</span>
+<p>We can now write our interface to the SDL event system. This will gather the pending SDL events and convert them to <code>AppEvent</code> values.</p>
+<p>It will also inject an <code>AppRender</code> event into the head of the event stream. We do this because we want to start by rendering, rather than displaying an empty frame until SDL events arrive.</p>
+<p>This is what we end up with:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">gatherEvents ::</span> <span class="dt">IO</span> [<span class="dt">AppEvent</span>]
+gatherEvents <span class="fu">=</span> <span class="kw">do</span>
+  <span class="co">-- gather the pending SDL events</span>
   es <span class="ot">&lt;-</span> pollEvents
-  return <span class="fu">$</span> foldr (handleEvent <span class="fu">.</span> toAppEvent) gs es</code></pre></div>
+  <span class="co">-- add an 'AppRender' event to the front of the list</span>
+  return <span class="fu">$</span> <span class="dt">AppRender</span> <span class="fu">:</span> fmap toAppEvent es</code></pre></div>
+<p>At this point, we have an interface to the event system that - aside from <code>AppOther</code> - is independent of the fact that we’re using SDL.</p>
 <h2 id="rendering-the-game-state">Rendering the game state</h2>
+<p>We’d also like the SDL specific parts of the rendering to be hidden away from the higher level interactions with that code. We’re going to aim for a central <code>render</code> function to do this.</p>
 <p>We create a main function to do our rendering, which will call all the other rendering functions and then call <code>present</code> to update the screen.</p>
 <div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">render ::</span> <span class="dt">Renderer</span>
      <span class="ot">-&gt;</span> <span class="dt">IO</span> ()
@@ -144,16 +138,30 @@ background r <span class="fu">=</span> <span class="kw">do</span>
   rendererDrawColor r <span class="fu">$=</span> <span class="dt">V4</span> <span class="dv">0</span> <span class="dv">0</span> <span class="dv">255</span> <span class="dv">255</span>
   clear r</code></pre></div>
 <p>but later on we’ll have drawing functions to render the relevant information from our game state.</p>
+<p>The interface still exposes the fact that we need a <code>Renderer</code>, so we don’t have as nice a separation of concerns as we do with the event handling. This will improve in future posts as we bring more abstraction into play.</p>
 <h2 id="tying-it-all-together">Tying it all together</h2>
-<p>Since <code>doEvents</code> ties the events to the game state and <code>draw</code> renders the game state, we need to call both of these in our main loop, and continue until the user quits:</p>
+<p>We need something that will tie together the game state, the events and the rendering.</p>
+<p>Since we’re trying to drive this thing by events, we’ll start by writing a function to process a single event:</p>
+<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">gameStep ::</span> <span class="dt">Renderer</span> 
+         <span class="ot">-&gt;</span> <span class="dt">AppEvent</span> 
+         <span class="ot">-&gt;</span> <span class="dt">GameState</span> 
+         <span class="ot">-&gt;</span> <span class="dt">IO</span> <span class="dt">GameState</span>
+gameStep r <span class="dt">AppRender</span> gs <span class="fu">=</span> <span class="kw">do</span>
+  render r
+  return gs
+gameStep _ <span class="dt">AppQuit</span> gs <span class="fu">=</span>
+  return <span class="fu">$</span> gs { hasQuit <span class="fu">=</span> <span class="dt">True</span> }
+gameStep _ _ gs <span class="fu">=</span>
+  return gs</code></pre></div>
+<p>To use it, we need to gather the pending events, process them all with a fold, and then keep going until the user quits:</p>
 <div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">gameLoop ::</span> <span class="dt">Renderer</span>
          <span class="ot">-&gt;</span> <span class="dt">GameState</span>
          <span class="ot">-&gt;</span> <span class="dt">IO</span> ()
 gameLoop r s <span class="fu">=</span> <span class="kw">do</span>
-  <span class="co">-- update the GameState based on the events</span>
-  s' <span class="ot">&lt;-</span> doEvents s
-  <span class="co">-- render the game</span>
-  render r
+  <span class="co">-- gather the events</span>
+  es <span class="ot">&lt;-</span> gatherEvents
+  <span class="co">-- interpret the events</span>
+  s' <span class="ot">&lt;-</span> foldrM (gameStep r) s es
   <span class="co">-- check to see if the user has quit</span>
   <span class="kw">let</span> q <span class="fu">=</span> hasQuit s'
   <span class="co">-- if not, keep going</span>
